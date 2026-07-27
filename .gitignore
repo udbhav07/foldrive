@@ -1,0 +1,17 @@
+# environments & caches
+.venv/
+__pycache__/
+*.pyc
+build/
+dist/
+*.egg-info/
+
+# never commit credentials
+client_secret.json
+token.json
+
+# per-folder sync state (lives in synced folders, not this repo)
+.foldrive/
+
+# local working notes
+PLAN.md
