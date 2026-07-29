@@ -1,6 +1,6 @@
 import argparse
 from . import __version__
-
+from . import auth
 
 def cmd_push(args):
     print("push: not implemented yet")
@@ -22,12 +22,25 @@ def cmd_status(args):
     print("status: not implemented yet")
 
 
+
 def cmd_login(args):
-    print("login: not implemented yet")
+    already = auth.get_credentials() is not None
+    auth.login()
+    if already:
+        print("Already logged in.")
+    else:
+        print(f"Logged in. Token saved to {auth.TOKEN_PATH}")
 
 
 def cmd_whoami(args):
-    print("whoami: not implemented yet")
+    creds = auth.get_credentials()
+    if creds is None:
+        print("Not logged in. Run: foldrive login")
+        return
+    from googleapiclient.discovery import build
+    service=build("drive","v3",credentials=creds)
+    info = service.about().get(fields="user").execute()
+    print(f"Logged in as {info['user']['emailAddress']}")
 
 
 def cmd_tick(args):
@@ -105,7 +118,7 @@ def main():
 
     p = sub.add_parser(
         "autostart",
-        help="Enable Foldrive to start automatically when you log in",
+        help="Enable foldrive to start automatically when you log in",
     )
     p.set_defaults(func=cmd_autostart)
 
