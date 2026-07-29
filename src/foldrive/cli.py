@@ -43,6 +43,13 @@ def cmd_whoami(args):
     print(f"Logged in as {info['user']['emailAddress']}")
 
 
+def cmd_logout(args):
+    if auth.logout():
+        print("Logged out.")
+    else:
+        print("Not logged in.")
+
+
 def cmd_tick(args):
     print("tick: not implemented yet")
 
@@ -121,6 +128,11 @@ def main():
         help="Enable foldrive to start automatically when you log in",
     )
     p.set_defaults(func=cmd_autostart)
+
+    p = sub.add_parser("logout",help="Sign out and forget the saved Google token",
+    )
+    p.set_defaults(func=cmd_logout)
+
 
     args = parser.parse_args()
     args.func(args)

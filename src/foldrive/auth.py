@@ -38,5 +38,10 @@ def login():
     _save(creds)
     return creds
 
+def logout():
+    if TOKEN_PATH.exists():
+        TOKEN_PATH.unlink()
+        return True
+    return False
 
         
