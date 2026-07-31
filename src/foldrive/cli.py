@@ -53,6 +53,8 @@ def cmd_logout(args):
 def cmd_tick(args):
     print("tick: not implemented yet")
 
+def cmd_ls(args):
+    print("ls: not implemented yet")
 
 def cmd_autostart(args):
     print("autostart: not implemented yet")
@@ -86,6 +88,13 @@ def main():
         help="Show the currently signed-in Google account",
     )
     p.set_defaults(func=cmd_whoami)
+
+    p = sub.add_parser(
+        "ls",
+        help = "Show all folders present in Drive with the name given in argument",
+    )
+    p.add_argument("name", help="Drive folder name to look up")
+    p.set_defaults(func=cmd_ls)
 
     p = sub.add_parser(
         "init",
