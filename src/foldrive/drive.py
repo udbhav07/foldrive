@@ -22,4 +22,12 @@ def list_children(service, folder_id):
         page_token = response.get("nextPageToken")
         if page_token is None:
             return all_children
-    
+
+
+def create_folder(service, folder_name, parent_id=None):
+    """Create a Drive folder (in My Drive root unless parent_id given); return its id."""
+    folder_metadata = {"name": folder_name, "mimeType": FOLDER_MIME_TYPE}
+    if parent_id is not None:
+        folder_metadata["parents"] = [parent_id]
+    created_folder = service.files().create(body=folder_metadata, fields="id").execute()
+    return created_folder["id"]

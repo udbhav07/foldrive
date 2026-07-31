@@ -1,9 +1,8 @@
 import argparse
-
 from googleapiclient.errors import HttpError
+from . import __version__, auth, drive, config
+from pathlib import Path 
 
-from . import __version__
-from . import auth, drive
 
 def cmd_push(args):
     print("push: not implemented yet")
@@ -18,7 +17,8 @@ def cmd_sync(args):
 
 
 def cmd_init(args):
-    print("init: not implemented yet")
+    
+
 
 
 def cmd_status(args):
@@ -77,7 +77,7 @@ def cmd_ls(args):
             children,
             key=lambda child: (child["mimeType"] != drive.FOLDER_MIME_TYPE, child["name"].lower()),
         )
-        print(f"Found one folder with the name '{args.name}', following are the contents in Google Drive of that folder: \n")
+        print(f"Found one folder with the name '{args.name}', following are the contents in Google Drive of that folder: ")
         for child in folders_first_alphabetical:
             if child["mimeType"] == drive.FOLDER_MIME_TYPE:
                 print(f"  {child['name']}/")
