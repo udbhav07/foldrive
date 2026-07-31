@@ -1,9 +1,9 @@
-FOLDER_MIME_TYPE = "application/vnd.googl-apps.folder"
+FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
 
 def find_folder_by_name(service, name):
     escaped_name = name.replace("'","\\'")
     response = service.files().list(
-        q=f"name = '{escaped_name}' and mimeType = '{FOLDER_MIME_TYPE}' and trahsed = false",
+        q=f"name = '{escaped_name}' and mimeType = '{FOLDER_MIME_TYPE}' and trashed = false",
         fields="files(id,name,parents)",
     ).execute()
     return response["files"]
@@ -14,7 +14,7 @@ def list_children(service, folder_id):
     while True:
         response = service.files().list(
             q=f"'{folder_id}' in parents and trashed = false",
-            fields="nextPageToken, files(id, name, mimeType, size, md5Checksum)",
+            fields="nextPageToken, files(id, name, mimeType, size, md5Checksum, modifiedTime)",
             pageSize=1000,
             pageToken=page_token,
         ).execute()

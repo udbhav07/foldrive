@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -24,7 +25,11 @@ def get_credentials():
     if creds.valid:
         return creds
     if creds.expired and creds.refresh_token:
-        creds.refresh(Request())
+        try:
+            creds.refresh(Request())
+        except RefreshError:
+            TOKEN_PATH.unlink()
+            return None
         _save(creds)
         return creds
     return None
@@ -43,5 +48,15 @@ def logout():
         TOKEN_PATH.unlink()
         return True
     return False
+
+
+def get_service():
+    """Build a Drive client, or exit with a hint if not logged in."""
+    from googleapiclient.discovery import build
+
+    credentials = get_credentials()
+    if credentials is None:
+        raise SystemExit("Not logged in. Run: foldrive login")
+    return build("drive", "v3", credentials=credentials)
 
         

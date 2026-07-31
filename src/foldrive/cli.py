@@ -1,6 +1,9 @@
 import argparse
+
+from googleapiclient.errors import HttpError
+
 from . import __version__
-from . import auth
+from . import auth, drive
 
 def cmd_push(args):
     print("push: not implemented yet")
@@ -33,12 +36,7 @@ def cmd_login(args):
 
 
 def cmd_whoami(args):
-    creds = auth.get_credentials()
-    if creds is None:
-        print("Not logged in. Run: foldrive login")
-        return
-    from googleapiclient.discovery import build
-    service=build("drive","v3",credentials=creds)
+    service = auth.get_service()
     info = service.about().get(fields="user").execute()
     print(f"Logged in as {info['user']['emailAddress']}")
 
@@ -54,7 +52,43 @@ def cmd_tick(args):
     print("tick: not implemented yet")
 
 def cmd_ls(args):
-    print("ls: not implemented yet")
+    if args.name is None:
+        args.name = input("Enter the Drive folder name: ").strip()
+        if not args.name:
+            raise SystemExit("No folder name given.")
+        
+    service = auth.get_service()
+    try:
+        matching_folders = drive.find_folder_by_name(service, args.name)
+        if not matching_folders:
+            print(f"No Drive folder named '{args.name}' found.")
+            return
+        if len(matching_folders) > 1:
+            print(f"Multiple folders named '{args.name}' found.")
+            for folder_match in matching_folders:
+                print(f" {folder_match['name']} (id: {folder_match['id']})")
+            return
+
+        children = drive.list_children(service, matching_folders[0]["id"])
+        if not children:
+            print("(empty folder)")
+            return
+        folders_first_alphabetical = sorted(
+            children,
+            key=lambda child: (child["mimeType"] != drive.FOLDER_MIME_TYPE, child["name"].lower()),
+        )
+        print(f"Found one folder with the name '{args.name}', following are the contents in Google Drive of that folder: \n")
+        for child in folders_first_alphabetical:
+            if child["mimeType"] == drive.FOLDER_MIME_TYPE:
+                print(f"  {child['name']}/")
+            else:
+                size_kb = int(child.get("size", 0)) // 1024
+                print(f"  {child['name']}  ({size_kb} KB)")
+    except HttpError as api_error:
+        raise SystemExit(f"Google Drive API error: {api_error.reason}")
+    except OSError:
+        raise SystemExit("Network error — are you connected to the internet?")
+
 
 def cmd_autostart(args):
     print("autostart: not implemented yet")
@@ -91,10 +125,16 @@ def main():
 
     p = sub.add_parser(
         "ls",
-        help = "Show all folders present in Drive with the name given in argument",
+        help="List the contents of a Drive folder by name",
     )
-    p.add_argument("name", help="Drive folder name to look up")
+    p.add_argument(
+        "name",
+        nargs="?",
+        default=None,
+        help="Drive folder name to look up (you'll be asked if omitted)",
+    )
     p.set_defaults(func=cmd_ls)
+
 
     p = sub.add_parser(
         "init",
