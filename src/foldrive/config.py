@@ -13,7 +13,7 @@ DEFAULT_CONFIG = {
             "pull_every_minutes":30,
             "push_every_minutes":50
         },
-    "ignore":[".foldrive/", ".googledrive.json", "~$", "*.tmp", "desktop.ini"],
+    "ignore": [".foldrive/", ".googledrive.json", "~$*", "*.tmp", "desktop.ini"],
     "conflict_policy": "newest_wins_keep_both",
     "delete_policy": "trash",
 }
@@ -21,7 +21,7 @@ DEFAULT_CONFIG = {
 def load_config(folder):
     config_path = Path(folder)/ CONFIG_NAME
     if not config_path.exists():
-        raise SystemExit(f"Not a foldrive folder ({CONFIG_NAME} missing) Run:foldrive inti")
+        raise SystemExit(f"Not a foldrive folder ({CONFIG_NAME} missing). Run: foldrive init")
     try:
         loaded_config = json.loads(config_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as parse_error:
