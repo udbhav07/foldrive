@@ -63,6 +63,11 @@ def main():
         "status",
         help="Show local and remote sync status",
     )
+    p.add_argument(
+        "--all",
+        action="store_true",
+        help="List every pending file instead of the first 40",
+    )
     p.set_defaults(func=status.run)
 
     p = sub.add_parser(
