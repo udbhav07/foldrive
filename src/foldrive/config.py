@@ -13,7 +13,30 @@ DEFAULT_CONFIG = {
             "pull_every_minutes":30,
             "push_every_minutes":50
         },
-    "ignore": [".foldrive/", ".googledrive.json", "~$*", "*.tmp", "desktop.ini"],
+    "ignore": [
+        # foldrive's own files
+        ".foldrive/",
+        ".googledrive.json",
+        # editor / OS clutter
+        "~$*",
+        "*.tmp",
+        "desktop.ini",
+        "Thumbs.db",
+        ".DS_Store",
+        # developer junk: rebuildable, huge, and pointless in Drive
+        ".venv/",
+        "venv/",
+        "env/",
+        "__pycache__/",
+        "*.pyc",
+        "node_modules/",
+        ".git/",
+        ".idea/",
+        ".vscode/",
+        "build/",
+        "dist/",
+        "*.egg-info/",
+    ],
     "conflict_policy": "newest_wins_keep_both",
     "delete_policy": "trash",
 }

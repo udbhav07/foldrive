@@ -26,10 +26,42 @@ Daily use: save files into the folder and forget about it (the scheduler
 pushes/pulls on the intervals in `.googledrive.json`), or drive it manually:
 
 ```
-foldrive status     # what's pending, both directions
-foldrive push       # upload local changes now
-foldrive pull       # download Drive changes now
+foldrive status         # what's pending, both directions
+foldrive status --all   # ...listing every file, not just the first 40
+foldrive push           # upload local changes now
+foldrive pull           # download Drive changes now
 ```
+
+`status` is read-only — it never uploads, downloads, or writes state. It prints
+a count per change type, then the first 40 affected files:
+
+```
+Folder : C:\Users\me\Desktop\6th sem
+Drive  : 6th sem
+Local  : 336 files    Drive: 163 files
+This folder has never been synced — the first sync merges both sides.
+
+  CONFLICT         -> both sides changed   24 file(s)
+  new in Drive     -> download   25 file(s)
+  identical        -> just remember it   114 file(s)
+  new locally      -> upload   198 file(s)
+
+  new locally      -> upload   CN lab/1/client.cpp
+  ...
+  ... and 321 more (use --all to list every file)
+
+361 change(s) pending. Run `foldrive sync` to apply.
+```
+
+*identical → just remember it* means the file is already the same on both
+sides: foldrive transfers nothing and only records the pairing.
+
+**Ignored by default:** foldrive skips things that are rebuildable or junk —
+`.venv/`, `venv/`, `env/`, `__pycache__/`, `*.pyc`, `node_modules/`, `.git/`,
+`build/`, `dist/`, `*.egg-info/`, `.idea/`, `.vscode/`, plus `~$*`, `*.tmp`,
+`Thumbs.db`, `desktop.ini`, `.DS_Store`. Edit the `ignore` list in
+`.googledrive.json` to change this per folder. (Existing folders keep the list
+written at `init` time — edit the file to pick up new defaults.)
 
 ## How is this different from Google Drive for Desktop?
 
@@ -44,7 +76,7 @@ exists because of the knobs it doesn't have:
 | Local folder location | chosen by the app (inside its mirror) | wherever your folder already lives |
 | Sync timing | always-on, real-time only | your schedule per folder (`pull every 30 min, push every 50 min`) — or fully manual |
 | Manual control | none — it just acts | `push` / `pull` / `status`, git-style; first sync shows its full plan and asks before touching anything |
-| Preview of pending changes | ❌ | `foldrive status` |
+| Preview of pending changes | ❌ | `foldrive status` (`--all` for the full list) |
 | Scriptable / CLI | ❌ | ✅ everything is a command |
 | Config as a file | ❌ | `.googledrive.json` per folder, editable, versionable |
 | Footprint | always-running background app | small Python CLI + a 5-minute scheduled task |
@@ -100,6 +132,11 @@ Revoke anytime at <https://myaccount.google.com/permissions>.
 
 ## Status
 
-Under active development. Working today: `login`, `whoami`. Coming next:
-`init`/`status`/`push` (one-way MVP), then `pull`/`sync`, then the scheduler
-(`tick`/`autostart`).
+Under active development.
+
+Working today: `login`, `whoami`, `logout`, `ls`, `init`, `status`
+(`--all`) — foldrive can link a folder pair and tell you exactly what a sync
+would do, in both directions, including conflicts.
+
+Coming next: `push` (uploads), then `pull`/`sync` with conflict copies, then
+the scheduler (`tick`/`autostart`), then packaging.

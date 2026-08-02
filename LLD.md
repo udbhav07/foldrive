@@ -54,7 +54,10 @@ pure (no I/O) so it is unit-testable.
   "drive_folder_id": "1AbC...xyz",
   "drive_folder_name": "7th sem",
   "schedule": { "pull_every_minutes": 30, "push_every_minutes": 50 },
-  "ignore": [".foldrive/", ".googledrive.json", "~$*", "*.tmp", "desktop.ini"],
+  "ignore": [".foldrive/", ".googledrive.json", "~$*", "*.tmp", "desktop.ini",
+             "Thumbs.db", ".DS_Store", ".venv/", "venv/", "env/", "__pycache__/",
+             "*.pyc", "node_modules/", ".git/", ".idea/", ".vscode/",
+             "build/", "dist/", "*.egg-info/"],
   "conflict_policy": "newest_wins_keep_both",
   "delete_policy": "trash"
 }
@@ -185,10 +188,14 @@ class Action:
     reason: str      # human-readable, shown by status
 
 def classify(local: dict, remote: dict, snapshot: dict) -> list[Action]   # PURE — no I/O
+def downgrade_for_first_sync(actions) -> list[Action]   # deletions -> keeps; drops `forget`
 def execute_push(svc, folder, cfg, st, actions) -> Summary
 def execute_pull(svc, folder, cfg, st, actions) -> Summary
 def first_sync_confirm(actions) -> bool    # print full plan, input("proceed? [y/N] ")
 ```
+
+`classify` and `downgrade_for_first_sync` are a **pipeline, not alternatives**:
+callers always classify, then downgrade only when `state["files"]` is empty.
 
 **Classification truth table.** For each relpath in
 `local ∪ remote ∪ snapshot` (S = in snapshot, L = in local, R = in remote;
@@ -257,6 +264,13 @@ Resolve the exe path with `shutil.which("foldrive")` at install time.
 synced folder (`find_config_root`) → `find_folder_by_name(cwd.name)` →
 0 hits: offer create; 1 hit: confirm; >1: numbered choice → write config →
 `register_folder` → print counts + "run `foldrive sync`".
+
+`status` flow (read-only — loads state, never saves it): `find_config_root` →
+`load_config` → `load_state` → `scan` + `list_tree` → `classify` (+ downgrade
+on first sync) → print. Output is **summarized**: one line per action kind with
+a count, then the first 40 affected paths, then `... and N more`. The `--all`
+flag lists every path. Any output that scales with folder size needs this cap —
+a 5000-file folder otherwise scrolls the useful summary off screen.
 
 Exit codes: 0 ok / 1 error / 2 nothing-to-do (argparse's own usage errors
 also exit 2). Errors raise `SystemExit("message")` — no tracebacks for
