@@ -37,7 +37,9 @@ DEFAULT_CONFIG = {
         "dist/",
         "*.egg-info/",
     ],
-    "conflict_policy": "newest_wins_keep_both",
+    # "ask" prompts per conflict in a terminal; "keep_both" never prompts.
+    # Scheduled runs (foldrive tick) always behave as "keep_both".
+    "conflict_policy": "ask",
     "delete_policy": "trash",
 }
 

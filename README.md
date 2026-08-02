@@ -42,6 +42,8 @@ Local  : 336 files    Drive: 163 files
 This folder has never been synced — the first sync merges both sides.
 
   CONFLICT         -> both sides changed   24 file(s)
+  ...
+  CONFLICT         -> local is newer, keeps the name   CN/Short Notes.docx
   new in Drive     -> download   25 file(s)
   identical        -> just remember it   114 file(s)
   new locally      -> upload   198 file(s)
@@ -123,8 +125,18 @@ Revoke anytime at <https://myaccount.google.com/permissions>.
 
 - Deletions are always soft: Drive trash on the remote side, Recycle Bin
   locally. Nothing foldrive does is unrecoverable.
-- Conflicts (same file edited on both sides): newest wins, the other version
-  is kept alongside as `name (conflict YYYY-MM-DD).ext`.
+- Conflicts (same file differs on both sides) never lose data. The newer
+  version keeps the original name; the other is preserved beside it as
+  `notes (local copy).docx` or `notes (drive copy).docx` — the label says which
+  side that version came from. Both files end up on **both** sides; you keep
+  the one you want and delete the other.
+  - Timestamps within 5 seconds of each other count as a tie (the two clocks
+    aren't the same) — then there's no winner and both copies are kept.
+  - Run it in a terminal and foldrive asks per conflict:
+    `[k]eep both / [l]ocal wins / [d]rive wins / [s]kip / [K]eep both for all`.
+    Scheduled runs never ask — they always keep both.
+  - Set `"conflict_policy": "keep_both"` in `.googledrive.json` to skip the
+    prompts in manual runs too (`"ask"` is the default).
 - Google-native files (Docs/Sheets/Slides) are skipped with a notice — they
   have no binary content to sync.
 - Folders inside OneDrive work, but two sync agents over one tree can be

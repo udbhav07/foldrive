@@ -58,7 +58,7 @@ pure (no I/O) so it is unit-testable.
              "Thumbs.db", ".DS_Store", ".venv/", "venv/", "env/", "__pycache__/",
              "*.pyc", "node_modules/", ".git/", ".idea/", ".vscode/",
              "build/", "dist/", "*.egg-info/"],
-  "conflict_policy": "newest_wins_keep_both",
+  "conflict_policy": "ask",
   "delete_policy": "trash"
 }
 ```
@@ -186,9 +186,13 @@ class Action:
     kind: str        # one of the classification results below
     relpath: str
     reason: str      # human-readable, shown by status
+    winner: str = "" # conflicts only: "local" | "drive" | "" (tie)
 
 def classify(local: dict, remote: dict, snapshot: dict) -> list[Action]   # PURE — no I/O
 def downgrade_for_first_sync(actions) -> list[Action]   # deletions -> keeps; drops `forget`
+def drive_time_to_epoch(rfc3339: str) -> float | None   # Drive text time -> comparable float
+def decide_conflict_winner(local_entry, remote_entry) -> str    # "local" | "drive" | ""
+def conflict_copy_name(relpath, side, taken_names=()) -> str    # pure; collisions numbered
 def execute_push(svc, folder, cfg, st, actions) -> Summary
 def execute_pull(svc, folder, cfg, st, actions) -> Summary
 def first_sync_confirm(actions) -> bool    # print full plan, input("proceed? [y/N] ")
@@ -217,9 +221,27 @@ callers always classify, then downgrade only when `state["files"]` is empty.
 | ✓ | ✓ | ✗ | L changed | `upload_new` (edit beats delete) |
 | ✓ | ✗ | ✗ | — | `forget` (drop from snapshot) |
 
-Conflict resolution (`newest_wins_keep_both`): compare local mtime vs remote
-`modifiedTime`; newer version keeps the name, older is renamed
-`<stem> (conflict YYYY-MM-DD)<ext>` and exists on **both** sides afterwards.
+**Conflict resolution.** `decide_conflict_winner()` compares local `mtime`
+against Drive's `modifiedTime` (parsed by `drive_time_to_epoch`) and returns
+`"local"`, `"drive"`, or `""`. The two values come from different clocks, so a
+difference within `TIE_WINDOW_SECONDS` (5) is a tie — no winner, keep both.
+The `Action.winner` field carries this to the executor and to `status`.
+
+The winner keeps the original name. The other version is written to both sides
+under `conflict_copy_name(relpath, side)` → `<stem> (<side> copy)<ext>`, e.g.
+`notes (local copy).docx`, bumped to `(local copy 2)` on collision. The `side`
+label names where that version came from, not who lost. Both files exist on
+both sides afterwards; nothing is deleted.
+
+`conflict_policy` values:
+- `"ask"` (default) — prompt per conflict when stdin is a terminal:
+  `[k]eep both / [l]ocal wins / [d]rive wins / [s]kip / [K]eep both for all remaining`
+- `"keep_both"` — never prompt
+
+`tick` always behaves as `"keep_both"` regardless of config: a scheduled task
+has no one to answer a prompt, and blocking on input would hang it forever.
+Detect with `sys.stdin.isatty()`; `--yes` forces non-interactive for scripts.
+Every run prints the conflict copies it created so they can be reviewed.
 
 Direction filters: `push` executes {upload_new, upload_changed, trash_remote,
 link, forget}; `pull` executes {download_new, download_changed, recycle_local,

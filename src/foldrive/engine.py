@@ -1,4 +1,10 @@
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import PurePosixPath
+
+# Local mtime and Drive's modifiedTime come from different clocks; anything
+# closer than this counts as "same time" -> no winner, keep both.
+TIE_WINDOW_SECONDS = 5
 
 # Actions that carry a change FROM local TO Drive.
 # `foldrive push` executes exactly these; `pull` ignores them.
@@ -22,6 +28,45 @@ class Action:
     kind: str
     relpath: str
     reason: str
+    winner: str = ""  # conflicts only: "local", "drive", or "" for a tie
+
+
+def drive_time_to_epoch(drive_modified_time):
+    """Drive sends RFC-3339 text ('2026-07-31T10:00:00.000Z'); mtimes are floats."""
+    if not drive_modified_time:
+        return None
+    return datetime.fromisoformat(
+        drive_modified_time.replace("Z", "+00:00")
+    ).timestamp()
+
+
+def decide_conflict_winner(local_entry, remote_entry):
+    """Newest wins; too close to call means no winner and both copies are kept."""
+    remote_epoch = drive_time_to_epoch(remote_entry.get("modified"))
+    local_epoch = local_entry.get("mtime")
+    if remote_epoch is None or local_epoch is None:
+        return ""
+    if abs(local_epoch - remote_epoch) <= TIE_WINDOW_SECONDS:
+        return ""
+    return "local" if local_epoch > remote_epoch else "drive"
+
+
+def conflict_copy_name(relpath, side, taken_names=()):
+    """'notes.docx' + 'local' -> 'notes (local copy).docx', numbered if taken."""
+    path = PurePosixPath(relpath)
+    parent = str(path.parent) if str(path.parent) != "." else ""
+
+    def build(label):
+        name = f"{path.stem} ({label}){path.suffix}"
+        return f"{parent}/{name}" if parent else name
+
+    candidate = build(f"{side} copy")
+    counter = 2
+    while candidate in taken_names:
+        candidate = build(f"{side} copy {counter}")
+        counter += 1
+    return candidate
+
 
 def classify(local_files, remote_files, snapshot_files):
     actions = []
@@ -50,10 +95,18 @@ def classify(local_files, remote_files, snapshot_files):
             elif local_entry["md5"] == remote_entry["md5"]:
                 actions.append(Action("link", relative_path, "identical on both sides"))
             else:
-                actions.append(Action("conflict", relative_path, "exists on both sides with different content"))
+                actions.append(Action(
+                    "conflict", relative_path,
+                    "exists on both sides with different content",
+                    decide_conflict_winner(local_entry, remote_entry),
+                ))
         elif in_local and in_remote:
             if local_changed and remote_changed:
-                actions.append(Action("conflict", relative_path, "changed locally and in Drive"))
+                actions.append(Action(
+                    "conflict", relative_path,
+                    "changed locally and in Drive",
+                    decide_conflict_winner(local_entry, remote_entry),
+                ))
             elif local_changed:
                 actions.append(Action("upload_changed", relative_path, "changed locally"))
             elif remote_changed:

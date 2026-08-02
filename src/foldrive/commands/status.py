@@ -62,6 +62,11 @@ def run(args):
         shown_limit = 40 if not args.all else len(actions)
         for action in actions[:shown_limit]:
             label = KIND_LABELS.get(action.kind, action.kind)
+            if action.kind == "conflict":
+                if action.winner:
+                    label = f"CONFLICT         -> {action.winner} is newer, keeps the name"
+                else:
+                    label = "CONFLICT         -> same age, keeping both copies"
             print(f"  {label}   {action.relpath}")
         if len(actions) > shown_limit:
             print(f"  ... and {len(actions) - shown_limit} more (use --all to list every file)")
