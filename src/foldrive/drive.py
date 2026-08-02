@@ -31,3 +31,39 @@ def create_folder(service, folder_name, parent_id=None):
         folder_metadata["parents"] = [parent_id]
     created_folder = service.files().create(body=folder_metadata, fields="id").execute()
     return created_folder["id"]
+
+
+def list_tree(service, folder_id):
+    """Walk a Drive folder recursively"""
+
+    files = {}
+    folders = {}
+    skipped_google_native = 0
+
+    pending_folders = [(folder_id,"")]
+
+    while pending_folders:
+        current_folder_id, current_relative_path = pending_folders.pop()
+
+        for child in list_children(service, current_folder_id):
+            child_relative_path = (
+                f"{current_relative_path}/{child['name']}" if current_relative_path else child['name']
+            )
+
+            if child["mimeType"] == FOLDER_MIME_TYPE:
+                folders[child_relative_path] = child["id"]
+                pending_folders.append((child["id"], child_relative_path))
+                continue
+
+            if child["mimeType"].startswith("application/vnd.google-apps"):
+                skipped_google_native += 1
+                continue 
+
+            files[child_relative_path] = {
+                "id": child["id"],
+                "size": int(child.get("size", 0)),
+                "md5": child.get("md5Checksum"),
+                "modified": child.get("modifiedTime"),
+            }
+
+    return files, folders, skipped_google_native
