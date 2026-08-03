@@ -1,3 +1,5 @@
+from googleapiclient.http import MediaFileUpload
+
 FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
 
 def find_folder_by_name(service, name):
@@ -67,3 +69,25 @@ def list_tree(service, folder_id):
             }
 
     return files, folders, skipped_google_native
+
+
+def upload(service, local_path, parent_id, name):
+    media =MediaFileUpload(str(local_path),resumable=True)
+    return service.files().create(
+        body={"name": name, "parents":[parent_id]},
+        media_body=media,
+        fields="id, md5Checksum, modifiedTime, size",
+    ).execute()
+
+def update(service,file_id,local_path):
+    media=MediaFileUpload(str(local_path),resumable=True)
+    return service.files().update(
+        fileId=file_id,
+        media_body=media,
+        fields="id, md5Checksum, modifiedTime, size",
+    ).execute()
+
+def trash(service,file_id):
+    service.files().update(
+        fileId=file_id, body={"trashed":True}
+    ).execute()
