@@ -74,6 +74,11 @@ def main():
         "push",
         help="Upload local changes to Google Drive",
     )
+    p.add_argument(
+        "--yes",
+        action="store_true",
+        help="Skip the first-sync confirmation prompt",
+    )
     p.set_defaults(func=push.run)
 
     p = sub.add_parser(
