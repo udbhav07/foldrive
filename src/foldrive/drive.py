@@ -1,4 +1,5 @@
-from googleapiclient.http import MediaFileUpload
+from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
+import io,os
 
 FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
 
@@ -91,3 +92,13 @@ def trash(service,file_id):
     service.files().update(
         fileId=file_id, body={"trashed":True}
     ).execute()
+
+def download(service,file_id,destination_path):
+    temporary_path = destination_path.with_name(destination_path.name + ".part")
+    request = service.files().get_media(fileId=file_id)
+    with open(temporary_path,"wb") as open_file:
+        downloader = MediaIoBaseDownload(open_file,request)
+        done = False
+        while not done:
+            _status,done =downloader.next_chunk()
+    os.replace(temporary_path,destination_path)
