@@ -1,4 +1,5 @@
 from pathlib import PurePosixPath
+from send2trash import send2trash
 from . import drive
 
 def ensure_drive_folder(service, folder_relpath,root_folder_id, folder_ids):
@@ -78,4 +79,58 @@ def push(service, folder, root_folder_id, current_state, actions, local_files, r
             summary["failed"] += 1
             print(f"  failed: {relative_path} ({failure})")
             
+    return summary
+
+
+def pull(service, folder, current_state,actions, local_files,remote_files):
+    summary = {"downloaded": 0, "updated": 0, "recycled": 0, "linked": 0, "failed": 0}
+
+    for action in actions:
+        relative_path = action.relpath
+        try:
+            if action.kind in ("download_new","download_changed"):
+                local_path = folder / relative_path
+                local_path.parent.mkdir(parents=True,exist_ok=True)
+                remote_entry = remote_files[relative_path]
+                drive.download(service,remote_entry["id"],local_path)
+
+                file_stat = local_path.stat()
+                current_state["files"][relative_path]={
+                    "size": file_stat.st_size,
+                    "mtime": file_stat.st_mtime,
+                    "md5": remote_entry["md5"],
+                    "drive_file_id": remote_entry["id"],
+                    "drive_modified": remote_entry.get("modified"),
+                }
+                if action.kind == "download_new":
+                    summary["downloaded"] += 1
+                else:
+                    summary["updated"] += 1
+
+            elif action.kind == "recycle_local":
+                local_path = folder/relative_path
+                if local_path.exists():
+                    send2trash(str(local_path))
+                current_state["files"].pop(relative_path,None)
+                summary["recycled"]+=1
+
+            elif action.kind == "link":
+                local_entry = local_files[relative_path]
+                remote_entry = remote_files[relative_path]
+                current_state["files"][relative_path] = {
+                    "size": local_entry["size"],
+                    "mtime": local_entry["mtime"],
+                    "md5": local_entry["md5"],
+                    "drive_file_id": remote_entry["id"],
+                    "drive_modified": remote_entry.get("modified"),
+                }
+                summary["linked"] +=1
+
+            elif action.kind == "forget":
+                current_state["files"].pop(relative_path, None)
+
+        except Exception as failure:
+            summary["failed"] += 1
+            print(f"  failed: {relative_path} ({failure})")
+
     return summary
