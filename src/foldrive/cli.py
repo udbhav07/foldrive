@@ -85,6 +85,11 @@ def main():
         "pull",
         help="Download remote changes from Google Drive",
     )
+    p.add_argument(
+        "--yes",
+        action="store_true",
+        help="Never prompt; use safe defaults",
+    )
     p.set_defaults(func=pull.run)
 
     p = sub.add_parser(
