@@ -137,8 +137,83 @@ Revoke anytime at <https://myaccount.google.com/permissions>.
     Scheduled runs never ask — they always keep both.
   - Set `"conflict_policy": "keep_both"` in `.googledrive.json` to skip the
     prompts in manual runs too (`"ask"` is the default).
-- Google-native files (Docs/Sheets/Slides) are skipped with a notice — they
-  have no binary content to sync.
+
+### What resolving one conflict does
+
+Say `notes.docx` differs on both sides and the local copy is newer
+(`winner = local`). foldrive:
+
+1. Downloads Drive's version and saves it locally as `notes (drive copy).docx`
+2. Uploads that same file back to Drive as `notes (drive copy).docx`
+3. Uploads the local `notes.docx`, overwriting Drive's copy — the winner keeps
+   the original name
+4. Records both files in the snapshot, so the next run sees them as settled
+
+When Drive's copy is newer the steps mirror: the local file is renamed to
+`notes (local copy).docx` and uploaded, Drive's version is downloaded over
+`notes.docx`. On a tie neither keeps the name — both `(local copy)` and
+`(drive copy)` are written to both sides.
+
+Either way both sides end up identical, with every version still present.
+
+Note that `notes.docx` here means a **real Word file** — one that was uploaded
+to Drive as a `.docx`. A Google Doc is a different thing entirely; see below.
+
+### Google Docs, Sheets and Slides
+
+Google-native files are **currently skipped**, and `status` reports how many.
+They aren't files in the normal sense: they have no bytes to download and no
+checksum, so nothing to compare or transfer.
+
+This surprises people, so worth stating plainly: **opening a `.txt` or `.docx`
+in the Drive web UI and editing it usually creates a separate Google Doc**
+rather than changing the original file. Your original stays untouched, and
+foldrive keeps syncing that — while the new Doc is skipped. To genuinely change
+a file's contents in Drive, use *right-click → Manage versions → Upload new
+version*, or just edit it locally and let foldrive push it.
+
+Planned support, configurable per type in `.googledrive.json`:
+
+```json
+"google_native": {
+  "document":     { "mode": "download_only", "format": "docx" },
+  "presentation": { "mode": "download_only", "format": "pptx" },
+  "spreadsheet":  { "mode": "skip",          "format": "xlsx" }
+}
+```
+
+| Mode | Drive changes | Local changes | Both change |
+|---|---|---|---|
+| `skip` | ignored | ignored | ignored |
+| `download_only` | re-export over the local file | not pushed; `status` warns | local file kept as `Notes (local copy).docx`, then re-exported |
+| `upload_only` | not pulled; `status` warns | converted back into the same Doc | Drive version kept as a copy, then local uploaded |
+| `two_way` | re-export over the local file | converted back into the same Doc | usual conflict rules |
+
+`download_only` is what **rclone** does — its Drive backend exports natives to a
+chosen format and can't upload them back, so bisync handles Docs one-way only.
+`upload_only` and `two_way` have no rclone equivalent: writing a local edit back
+into the *same* Drive document is what foldrive adds on top.
+
+There's still just **one file on each side**: Drive's `Notes` and your local
+`Notes.docx` are the same document. `two_way` syncs it like any other file —
+edits in Drive refresh the local copy, local edits convert back into the *same*
+Doc (same id, same share links, same version history, no duplicate file) — and
+if both sides changed you get `Notes (drive copy).docx` as usual.
+
+**Nothing is silently destroyed in any mode.** Even under `download_only`, a
+locally-edited file is renamed to `Notes (local copy).docx` before the fresh
+export lands, so an accidental local edit can't vanish.
+
+**Why `two_way` is lossy:** a Google Doc holds things `.docx` can't represent
+(comments, suggestion mode, some formatting), and a Sheet holds cross-sheet
+formulas, charts and filters that `.xlsx` mangles. Pushing a locally-edited copy
+rebuilds the Drive document from the converted file, so those extras are lost.
+That's why Docs and Slides default to `download_only` and Sheets to `skip`.
+
+Change detection for native files uses Drive's modified time rather than a
+checksum, since exporting the same document twice doesn't produce identical
+bytes.
+
 - Folders inside OneDrive work, but two sync agents over one tree can be
   noisy; a sync root outside OneDrive is calmer.
 
