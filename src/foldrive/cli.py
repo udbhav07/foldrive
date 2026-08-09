@@ -96,6 +96,11 @@ def main():
         "sync",
         help="Synchronize local and Google Drive changes",
     )
+    p.add_argument(
+        "--yes",
+        action="store_true",
+        help="Never prompt; use safe defaults",
+    )
     p.set_defaults(func=sync.run)
 
     p = sub.add_parser(

@@ -36,14 +36,15 @@ def run(args):
     pull_actions = [a for a in actions if a.kind in engine.DOWNLOAD_KINDS or a.kind in ("link", "forget")]
     conflicts = [a for a in actions if a.kind == "conflict"]
 
-    if not pull_actions:
+    if not pull_actions and not conflicts:
         print("Nothing to pull.")
-        if conflicts:
-            print(f"({len(conflicts)} conflict(s) need `foldrive sync`.)")
         return
 
     transfers = [a for a in pull_actions if a.kind not in ("link", "forget")]
-    print(f"{len(transfers)} file(s) to fetch, {len(pull_actions) - len(transfers)} to link.")
+    if pull_actions:
+        print(f"{len(transfers)} file(s) to fetch, {len(pull_actions) - len(transfers)} to link.")
+    if conflicts:
+        print(f"{len(conflicts)} conflict(s) to resolve.")
 
     if is_first_sync and transfers and sys.stdin.isatty() and not args.yes:
         for action in transfers[:20]:

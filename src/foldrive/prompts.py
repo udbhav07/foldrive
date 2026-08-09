@@ -41,12 +41,12 @@ def ask_conflict(action, local_entry, remote_entry):
         print(f"   ({action.winner} is newer)")
 
     while True:
-        answer = input(
-            "   k = keep both        l = local wins        d = Drive wins        s = skip this one\n"
-            "   K = keep both for all remaining    L = local wins for all remaining\n"
-            "   D = Drive wins for all remaining   S = skip all remaining\n"
-            "   choice: "
-        ).strip()
+        try:
+            answer = _read_choice()
+        except EOFError:
+            # No one is there to answer (scheduled run, piped input) -> safe default.
+            print("   no input available; keeping both copies")
+            return ("keep_both", True)
 
         if answer in VALID_CHOICES:
             return VALID_CHOICES[answer]
@@ -54,5 +54,14 @@ def ask_conflict(action, local_entry, remote_entry):
         print("   k = keep both        l = local wins        d = Drive wins        s = skip this one")
         print("   K = keep both for all remaining    L = local wins for all remaining")
         print("   D = Drive wins for all remaining   S = skip all remaining")
+
+
+def _read_choice():
+    return input(
+        "   k = keep both        l = local wins        d = Drive wins        s = skip this one\n"
+        "   K = keep both for all remaining    L = local wins for all remaining\n"
+        "   D = Drive wins for all remaining   S = skip all remaining\n"
+        "   choice: "
+    ).strip()
 
 

@@ -35,14 +35,15 @@ def run(args):
     push_actions = [a for a in actions if a.kind in engine.UPLOAD_KINDS or a.kind in ("link", "forget")]
     conflicts = [a for a in actions if a.kind == "conflict"]
 
-    if not push_actions:
+    if not push_actions and not conflicts:
         print("Nothing to push.")
-        if conflicts:
-            print(f"({len(conflicts)} conflict(s) need `foldrive sync` — coming in step 8.)")
         return
 
     transfers = [a for a in push_actions if a.kind not in ("link", "forget")]
-    print(f"{len(transfers)} file(s) to send, {len(push_actions) - len(transfers)} to link.")
+    if push_actions:
+        print(f"{len(transfers)} file(s) to send, {len(push_actions) - len(transfers)} to link.")
+    if conflicts:
+        print(f"{len(conflicts)} conflict(s) to resolve.")
 
     if is_first_sync and transfers and sys.stdin.isatty() and not args.yes:
         for action in transfers[:20]:
