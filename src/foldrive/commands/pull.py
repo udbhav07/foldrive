@@ -54,16 +54,24 @@ def run(args):
         if input("First sync for this folder. Proceed? [y/N] ").strip().lower() != "y":
             raise SystemExit("Cancelled. Nothing was downloaded.")
 
+    # Every question is asked before the first transfer, so the run needs no babysitting.
+    conflict_choices = []
+    if conflicts:
+        conflict_choices = executor.collect_conflict_choices(
+            conflicts, local_files, remote_files,
+            interactive=prompts.should_prompt(args, folder_config),
+            overrides=folder_config.get("conflict_overrides", {}),
+        )
+
     conflict_notes = []
     try:
         summary = executor.pull(
             service, folder, current_state, pull_actions, local_files, remote_files,
         )
-        if conflicts:
-            conflict_notes = executor.resolve_all_conflicts(
+        if conflict_choices:
+            conflict_notes = executor.apply_conflict_choices(
                 service, folder, folder_config["drive_folder_id"], current_state,
-                conflicts, local_files, remote_files,
-                interactive=prompts.should_prompt(args, folder_config),
+                conflict_choices, local_files, remote_files,
             )
     finally:
         # Saved even on Ctrl-C: whatever succeeded stays remembered.

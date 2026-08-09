@@ -234,20 +234,53 @@ def resolve_conflict(service, folder, root_folder_id, current_state, action,
 
 def resolve_all_conflicts(service, folder, root_folder_id, current_state, conflicts,
                           local_files, remote_files, interactive, default_choice="keep_both"):
-    notes = []
+    """Deprecated: use collect_conflict_choices() then apply_conflict_choices()."""
+    choices = collect_conflict_choices(
+        conflicts, local_files, remote_files, interactive, {}, default_choice
+    )
+    return apply_conflict_choices(service, folder, root_folder_id, current_state,
+                                  choices, local_files, remote_files)
+
+
+def collect_conflict_choices(conflicts, local_files, remote_files, interactive,
+                             overrides=None, default_choice="keep_both"):
+    """Decide every conflict up front, before any transfer starts.
+
+    Asking first means the user answers in the first few seconds and the rest of
+    the run needs nobody watching it. Pure decisions — no Drive or disk writes.
+    """
+    overrides = overrides or {}
+    choices = []
     forced_choice = None
+
     for action in conflicts:
+        override = overrides.get(action.relpath)
+        if override:
+            print(f"   {action.relpath}: '{override}' (from conflict_overrides)")
+            choices.append((action, override))
+            continue
+        if forced_choice:
+            choices.append((action, forced_choice))
+            continue
+        if interactive:
+            choice, apply_to_all = prompts.ask_conflict(
+                action, local_files[action.relpath], remote_files[action.relpath]
+            )
+            if apply_to_all:
+                forced_choice = choice
+        else:
+            choice = default_choice
+        choices.append((action, choice))
+
+    return choices
+
+
+def apply_conflict_choices(service, folder, root_folder_id, current_state, choices,
+                           local_files, remote_files):
+    """Execute decisions already made. Never prompts."""
+    notes = []
+    for action, choice in choices:
         try:
-            if forced_choice:
-                choice = forced_choice
-            elif interactive:
-                choice, apply_to_all = prompts.ask_conflict(
-                    action, local_files[action.relpath], remote_files[action.relpath]
-                )
-                if apply_to_all:
-                    forced_choice = choice
-            else:
-                choice = default_choice
             notes.append(resolve_conflict(service, folder, root_folder_id, current_state,
                                           action, local_files, remote_files, choice))
         except Exception as failure:

@@ -40,6 +40,9 @@ DEFAULT_CONFIG = {
     # "ask" prompts per conflict in a terminal; "keep_both" never prompts.
     # Scheduled runs (foldrive tick) always behave as "keep_both".
     "conflict_policy": "ask",
+    # Per-file standing answers, e.g. {"notes/scratch.txt": "local"}.
+    # Checked before prompting; values: keep_both | local | drive | skip.
+    "conflict_overrides": {},
     "delete_policy": "trash",
 }
 
