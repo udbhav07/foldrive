@@ -3,7 +3,7 @@ from pathlib import Path
 
 from googleapiclient.errors import HttpError
 
-from .. import auth, config, drive, engine, scanner, state, executor
+from .. import auth, config, drive, engine, scanner, state, executor, prompts
 
 
 def run(args):
@@ -52,11 +52,18 @@ def run(args):
         if input("First sync for this folder. Proceed? [y/N] ").strip().lower() != "y":
             raise SystemExit("Cancelled. Nothing was uploaded.")
 
+    conflict_notes = []
     try:
         summary = executor.push(
             service, folder, folder_config["drive_folder_id"],
             current_state, push_actions, local_files, remote_files,
         )
+        if conflicts:
+            conflict_notes = executor.resolve_all_conflicts(
+                service, folder, folder_config["drive_folder_id"], current_state,
+                conflicts, local_files, remote_files,
+                interactive=prompts.should_prompt(args, folder_config),
+            )
     finally:
         # Saved even on Ctrl-C: whatever succeeded stays remembered.
         state.save_state(folder, current_state)
@@ -65,5 +72,6 @@ def run(args):
         f"uploaded {summary['uploaded']}, updated {summary['updated']}, "
         f"trashed {summary['trashed']}, linked {summary['linked']}, failed {summary['failed']}"
     )
-    if conflicts:
-        print(f"{len(conflicts)} conflict(s) skipped — resolve with `foldrive sync` (step 8).")
+    for note in conflict_notes:
+        print(f"  {note}")
+

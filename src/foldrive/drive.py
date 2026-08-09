@@ -102,3 +102,8 @@ def download(service,file_id,destination_path):
         while not done:
             _status,done =downloader.next_chunk()
     os.replace(temporary_path,destination_path)
+
+def rename(service, file_id, new_name):
+    return service.files().update(
+        fileId=file_id, body={"name": new_name}, fields="id, modifiedTime"
+    ).execute()
