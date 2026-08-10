@@ -113,6 +113,8 @@ def main():
         "autostart",
         help="Enable foldrive to start automatically when you log in",
     )
+    p.add_argument("--remove", action="store_true",help="Disable background sync")
+    p.add_argument("--status",action="store_true",help="Show whether it's registered")
     p.set_defaults(func=autostart.run)
 
     args = parser.parse_args()

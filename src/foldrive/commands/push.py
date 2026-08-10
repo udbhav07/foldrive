@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-
+from datetime import datetime,timezone
 from googleapiclient.errors import HttpError
 
 from .. import auth, config, drive, engine, scanner, state, executor, prompts
@@ -36,6 +36,10 @@ def run(args):
     conflicts = [a for a in actions if a.kind == "conflict"]
 
     if not push_actions and not conflicts:
+        # Nothing to do still counts as a successful check — otherwise the folder
+        # stays "overdue" forever and every tick rescans it for nothing.
+        current_state["last_push_ok"] = datetime.now(timezone.utc).isoformat()
+        state.save_state(folder, current_state)
         print("Nothing to push.")
         return
 
@@ -73,6 +77,7 @@ def run(args):
                 service, folder, folder_config["drive_folder_id"], current_state,
                 conflict_choices, local_files, remote_files,
             )
+        current_state["last_pull_ok"]=datetime.now(timezone.utc)
     finally:
         # Saved even on Ctrl-C: whatever succeeded stays remembered.
         state.save_state(folder, current_state)
