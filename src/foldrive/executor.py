@@ -1,6 +1,23 @@
 from pathlib import PurePosixPath
 from send2trash import send2trash
-from . import drive, engine, prompts
+from . import drive, engine, progress, prompts, state
+
+# How many transfers between snapshot writes. Low enough that a hard kill costs
+# little re-work, high enough that the write itself stays negligible.
+SAVE_EVERY = 25
+
+
+def _periodic_save(folder, current_state, completed_transfers):
+    """Persist mid-run so a killed process doesn't lose everything it just did.
+
+    Safe at any point: each file's entry is recorded the moment its own transfer
+    succeeds, so the snapshot always describes exactly the work that is finished.
+    save_state writes a temp file and os.replace()s it, so a crash during the save
+    leaves either the old snapshot or the new one - never a half-written one.
+    """
+    if completed_transfers and completed_transfers % SAVE_EVERY == 0:
+        state.save_state(folder, current_state)
+
 
 def ensure_drive_folder(service, folder_relpath,root_folder_id, folder_ids):
     """Return the drive id for a relative folder path, creating level as needed"""
@@ -21,9 +38,11 @@ def ensure_drive_folder(service, folder_relpath,root_folder_id, folder_ids):
 def push(service, folder, root_folder_id, current_state, actions, local_files, remote_files):
     summary={"uploaded":0, "updated":0, "trashed":0, "linked":0, "failed":0}
     folder_ids = current_state["folders"]
+    reporter = progress.Reporter.for_actions(actions)
 
     for action in actions:
         relative_path = action.relpath
+        reporter.starting(action)
         try:
             if action.kind in ("upload_new", "upload_changed"):
                 local_path = folder/relative_path
@@ -74,6 +93,8 @@ def push(service, folder, root_folder_id, current_state, actions, local_files, r
             elif action.kind == "forget":
                 current_state["files"].pop(relative_path, None)
 
+            _periodic_save(folder, current_state, reporter.completed)
+
         except Exception as failure:
             # One bad file (locked, vanished, API hiccup) must not stop the rest.
             summary["failed"] += 1
@@ -84,9 +105,11 @@ def push(service, folder, root_folder_id, current_state, actions, local_files, r
 
 def pull(service, folder, current_state,actions, local_files,remote_files):
     summary = {"downloaded": 0, "updated": 0, "recycled": 0, "linked": 0, "failed": 0}
+    reporter = progress.Reporter.for_actions(actions)
 
     for action in actions:
         relative_path = action.relpath
+        reporter.starting(action)
         try:
             if action.kind in ("download_new","download_changed"):
                 local_path = folder / relative_path
@@ -129,6 +152,8 @@ def pull(service, folder, current_state,actions, local_files,remote_files):
             elif action.kind == "forget":
                 current_state["files"].pop(relative_path, None)
 
+            _periodic_save(folder, current_state, reporter.completed)
+
         except Exception as failure:
             summary["failed"] += 1
             print(f"  failed: {relative_path} ({failure})")
@@ -160,8 +185,12 @@ def _upload_local_file(service, folder, root_folder_id, folder_ids, relative_pat
 
 
 def resolve_conflict(service, folder, root_folder_id, current_state, action,
-                     local_files, remote_files, choice):
-    """choice: 'keep_both' | 'local' | 'drive' | 'skip'. Returns a note for the summary."""
+                     local_files, remote_files, choice, reporter=progress.SILENT):
+    """choice: 'keep_both' | 'local' | 'drive' | 'skip'. Returns a note for the summary.
+
+    One conflict can be three transfers, so each step reports itself - otherwise a
+    single line sits on screen for a minute with nothing to say what it's doing.
+    """
     relative_path = action.relpath
     local_path = folder / relative_path
     local_entry = local_files[relative_path]
@@ -172,12 +201,14 @@ def resolve_conflict(service, folder, root_folder_id, current_state, action,
         return f"skipped {relative_path}"
 
     if choice == "local":
+        reporter.detail("uploading the local version over Drive's")
         uploaded = drive.update(service, remote_entry["id"], local_path)
         _record(current_state, relative_path, local_entry["size"], local_entry["mtime"],
                 local_entry["md5"], uploaded["id"], uploaded.get("modifiedTime"))
         return f"local kept for {relative_path}"
 
     if choice == "drive":
+        reporter.detail("downloading Drive's version over the local one")
         drive.download(service, remote_entry["id"], local_path)
         file_stat = local_path.stat()
         _record(current_state, relative_path, file_stat.st_size, file_stat.st_mtime,
@@ -190,12 +221,15 @@ def resolve_conflict(service, folder, root_folder_id, current_state, action,
     if action.winner == "local":
         # Drive's version is preserved under a new name; local keeps the real one.
         drive_copy = engine.conflict_copy_name(relative_path, "drive", taken_names)
+        reporter.detail(f"downloading Drive's version as {drive_copy}")
         drive.download(service, remote_entry["id"], folder / drive_copy)
+        reporter.detail(f"uploading {drive_copy}")
         copy_uploaded = _upload_local_file(service, folder, root_folder_id, folder_ids, drive_copy)
         copy_stat = (folder / drive_copy).stat()
         _record(current_state, drive_copy, copy_stat.st_size, copy_stat.st_mtime,
                 remote_entry["md5"], copy_uploaded["id"], copy_uploaded.get("modifiedTime"))
 
+        reporter.detail(f"uploading the local version as {relative_path}")
         winner_uploaded = drive.update(service, remote_entry["id"], local_path)
         _record(current_state, relative_path, local_entry["size"], local_entry["mtime"],
                 local_entry["md5"], winner_uploaded["id"], winner_uploaded.get("modifiedTime"))
@@ -204,11 +238,14 @@ def resolve_conflict(service, folder, root_folder_id, current_state, action,
     if action.winner == "drive":
         # Local version is renamed aside; Drive's version takes the real name.
         local_copy = engine.conflict_copy_name(relative_path, "local", taken_names)
+        reporter.detail(f"renaming the local version aside as {local_copy}")
         (folder / relative_path).rename(folder / local_copy)
+        reporter.detail(f"uploading {local_copy}")
         copy_uploaded = _upload_local_file(service, folder, root_folder_id, folder_ids, local_copy)
         _record(current_state, local_copy, local_entry["size"], local_entry["mtime"],
                 local_entry["md5"], copy_uploaded["id"], copy_uploaded.get("modifiedTime"))
 
+        reporter.detail(f"downloading Drive's version as {relative_path}")
         drive.download(service, remote_entry["id"], local_path)
         file_stat = local_path.stat()
         _record(current_state, relative_path, file_stat.st_size, file_stat.st_mtime,
@@ -219,12 +256,16 @@ def resolve_conflict(service, folder, root_folder_id, current_state, action,
     local_copy = engine.conflict_copy_name(relative_path, "local", taken_names)
     drive_copy = engine.conflict_copy_name(relative_path, "drive", taken_names | {local_copy})
 
+    reporter.detail(f"renaming the local version aside as {local_copy}")
     (folder / relative_path).rename(folder / local_copy)
+    reporter.detail(f"uploading {local_copy}")
     local_uploaded = _upload_local_file(service, folder, root_folder_id, folder_ids, local_copy)
     _record(current_state, local_copy, local_entry["size"], local_entry["mtime"],
             local_entry["md5"], local_uploaded["id"], local_uploaded.get("modifiedTime"))
 
+    reporter.detail(f"renaming Drive's version to {drive_copy}")
     drive.rename(service, remote_entry["id"], PurePosixPath(drive_copy).name)
+    reporter.detail(f"downloading {drive_copy}")
     drive.download(service, remote_entry["id"], folder / drive_copy)
     copy_stat = (folder / drive_copy).stat()
     _record(current_state, drive_copy, copy_stat.st_size, copy_stat.st_mtime,
@@ -279,10 +320,17 @@ def apply_conflict_choices(service, folder, root_folder_id, current_state, choic
                            local_files, remote_files):
     """Execute decisions already made. Never prompts."""
     notes = []
+    reporter = progress.Reporter.for_conflicts(choices)
     for action, choice in choices:
+        if choice != "skip":
+            reporter.item(progress.CONFLICT_LABELS.get(choice, choice), action.relpath)
         try:
             notes.append(resolve_conflict(service, folder, root_folder_id, current_state,
-                                          action, local_files, remote_files, choice))
+                                          action, local_files, remote_files, choice,
+                                          reporter))
+            # Saved after every conflict, not every SAVE_EVERY: one conflict is
+            # three or four transfers, so the write costs nothing next to redoing it.
+            state.save_state(folder, current_state)
         except Exception as failure:
             notes.append(f"failed {action.relpath} ({failure})")
     return notes
