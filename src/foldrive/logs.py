@@ -1,10 +1,6 @@
 import logging
-import os
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
-
-LOG_DIR = Path(os.environ["APPDATA"])/"foldrive"/"logs"
-LOG_PATH = LOG_DIR/"foldrive.log"
+from .paths import LOG_DIR,LOG_PATH
 
 _configured = False
 

@@ -1,9 +1,8 @@
 import json
-import os
-from pathlib import Path
+from .paths import REGISTRY_PATH
 
 CONFIG_NAME = ".googledrive.json"
-REGISTRY_PATH = Path(os.environ["APPDATA"]) / "foldrive" / "folders.json"
+
 
 DEFAULT_CONFIG = {
     "drive_folder_id": "",
@@ -179,7 +178,7 @@ def find_config_root(start):
     return None
 
 def register_folder(folder):
-    REGISTRY_PATH.parent.mkdir(exist_ok=True)
+    REGISTRY_PATH.parent.mkdir(parents=True,exist_ok=True)
     registered_paths = []
     if REGISTRY_PATH.exists():
         registered_paths = json.loads(REGISTRY_PATH.read_text(encoding="utf-8"))

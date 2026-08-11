@@ -21,6 +21,18 @@ $task.Settings.StartWhenAvailable = $true
 $task | Set-ScheduledTask | Out-Null
 """
 
+WINDOWS_ONLY_MESSAGE = (
+    "Background sync is Windows-only for now.\n"
+    "Everything else works: run `foldrive sync` when you want to sync, or add a\n"
+    "cron entry to do it automatically:\n"
+    "    */5 * * * * foldrive tick"
+)
+
+def _require_windows():
+    """sys.platform is "win32" on every Windows, 32- or 64-bit - there is no "win64"."""
+    if sys.platform != "win32":
+        raise SystemExit(WINDOWS_ONLY_MESSAGE)
+
 
 def _foldrive_command():
     """The command Task Scheduler should run, however foldrive was installed.
@@ -63,6 +75,7 @@ def _allow_running_on_battery():
 
 
 def install():
+    _require_windows()
     subprocess.run([
         "schtasks", "/create", "/tn", TASK_NAME,
         "/tr", _foldrive_command(),
@@ -73,10 +86,15 @@ def install():
 
 
 def uninstall():
+    _require_windows()
     subprocess.run(["schtasks", "/delete", "/tn", TASK_NAME, "/f"], check=True)
 
 
 def status():
+    # Reports rather than raises: `--status` is a question, and "not supported here"
+    # is a perfectly good answer to it.
+    if sys.platform != "win32":
+        return "not supported on this platform (background sync is Windows-only)"
     result = subprocess.run(
         ["schtasks", "/query", "/tn", TASK_NAME], capture_output=True, text=True
     )

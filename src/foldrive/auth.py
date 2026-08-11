@@ -1,19 +1,16 @@
-import os
-from pathlib import Path
-
 from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 
+from .paths import APP_DIR, TOKEN_PATH
+
 SCOPES = ["https://www.googleapis.com/auth/drive"]
-APP_DIR = Path(os.environ["APPDATA"])/ "foldrive"
-TOKEN_PATH = APP_DIR / "token.json"
 CLIENT_SECRET_PATH = APP_DIR / "client_secret.json"
 
 
 def _save(creds):
-    APP_DIR.mkdir(exist_ok=True)
+    APP_DIR.mkdir(parents=True, exist_ok=True)
     TOKEN_PATH.write_text(creds.to_json(), encoding="utf-8")
 
 
