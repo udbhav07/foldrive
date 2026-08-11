@@ -14,6 +14,12 @@ KIND_LABELS = {
     "conflict": "CONFLICT         -> both sides changed",
     "link": "identical        -> just remember it",
     "forget": "gone from both   -> forget",
+    "download_new_doc": "new in Drive (Doc)    -> download as .docx",
+    "download_changed_doc": "changed in Drive (Doc) -> download again",
+    "download_changed_doc_keep_local": "changed both sides    -> download, local kept as a copy",
+    "upload_changed_doc": "changed locally       -> upload back into the Doc",
+    "upload_changed_doc_keep_drive": "changed both sides    -> upload, Drive kept as a copy",
+    "conflict_doc": "CONFLICT (Doc)        -> both sides changed",
 }
 
 
@@ -39,6 +45,9 @@ def run(args):
     is_first_sync = not current_state["files"]
 
     actions = engine.classify(local_files, remote_files, current_state["files"])
+    actions, native_notes = engine.apply_google_native_mode(
+        actions, remote_files, folder_config["google_native"]
+    )
     if is_first_sync:
         actions = engine.downgrade_for_first_sync(actions)
 
@@ -74,5 +83,8 @@ def run(args):
         print()
         print(f"{len(actions)} change(s) pending. Run `foldrive sync` to apply.")
 
+    for note in native_notes:
+        print(f"\n({note})")
+
     if skipped_google_native:
-        print(f"\n({skipped_google_native} Google Docs/Sheets/Slides skipped — they have no downloadable content.)")
+        print(f"\n({skipped_google_native} Google Forms/Drawings/Sites skipped - they have no downloadable form.)")

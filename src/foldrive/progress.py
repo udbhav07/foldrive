@@ -19,6 +19,8 @@ TRANSFER_KINDS = {
     "upload_new", "upload_changed",
     "download_new", "download_changed",
     "trash_remote", "recycle_local",
+    "download_new_doc", "download_changed_doc", "download_changed_doc_keep_local",
+    "upload_changed_doc", "upload_changed_doc_keep_drive",
 }
 
 VERBS = {
@@ -28,6 +30,11 @@ VERBS = {
     "download_changed": "updating locally",
     "trash_remote": "trashing on Drive",
     "recycle_local": "recycling locally",
+    "download_new_doc": "downloading Doc",
+    "download_changed_doc": "downloading Doc again",
+    "download_changed_doc_keep_local": "downloading Doc (local kept)",
+    "upload_changed_doc": "uploading into the Doc",
+    "upload_changed_doc_keep_drive": "uploading into the Doc (Drive kept)",
 }
 
 CONFLICT_LABELS = {

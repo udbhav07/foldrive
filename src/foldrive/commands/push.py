@@ -29,11 +29,14 @@ def run(args):
 
     is_first_sync = not current_state["files"]
     actions = engine.classify(local_files, remote_files, current_state["files"])
+    actions, _native_notes = engine.apply_google_native_mode(
+        actions, remote_files, folder_config["google_native"]
+    )
     if is_first_sync:
         actions = engine.downgrade_for_first_sync(actions)
 
     push_actions = [a for a in actions if a.kind in engine.UPLOAD_KINDS or a.kind in ("link", "forget")]
-    conflicts = [a for a in actions if a.kind == "conflict"]
+    conflicts = [a for a in actions if a.kind in ("conflict", "conflict_doc")]
 
     if not push_actions and not conflicts:
         # Nothing to do still counts as a successful check — otherwise the folder

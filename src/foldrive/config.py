@@ -44,8 +44,52 @@ DEFAULT_CONFIG = {
     # Checked before prompting; values: keep_both | local | drive | skip.
     "conflict_overrides": {},
     "delete_policy": "trash",
+    # Google Docs/Sheets/Slides, per type. See _normalise_google_native below.
+    "google_native": {"docs": "download_only", "sheets": "skip", "slides": "download_only"},
 }
 
+GOOGLE_NATIVE_MODES = {"skip", "download_only", "upload_only", "two_way"}
+GOOGLE_NATIVE_TYPES = ("docs", "sheets", "slides")
+
+# Sheets default to skip: .xlsx cannot carry cross-sheet formulas, charts or
+# filter views, so a round trip can quietly break a working spreadsheet.
+DEFAULT_GOOGLE_NATIVE = {"docs": "download_only", "sheets": "skip", "slides": "download_only"}
+
+
+def _normalise_google_native(raw_value, config_path):
+    """Accepts a single mode name for all three types, or a per-type object.
+    Always returns the per-type dict, so no caller handles two shapes."""
+    if raw_value is None:
+        return dict(DEFAULT_GOOGLE_NATIVE)
+
+    if isinstance(raw_value, str):
+        if raw_value not in GOOGLE_NATIVE_MODES:
+            raise SystemExit(
+                f'{config_path}: unknown google_native mode "{raw_value}". '
+                f'Valid modes: {", ".join(sorted(GOOGLE_NATIVE_MODES))}.'
+            )
+        return {file_type: raw_value for file_type in GOOGLE_NATIVE_TYPES}
+
+    if not isinstance(raw_value, dict):
+        raise SystemExit(
+            f'{config_path}: "google_native" must be a mode name or an object with '
+            f'the keys {", ".join(GOOGLE_NATIVE_TYPES)}.'
+        )
+
+    modes = dict(DEFAULT_GOOGLE_NATIVE)
+    for file_type, mode in raw_value.items():
+        if file_type not in GOOGLE_NATIVE_TYPES:
+            raise SystemExit(
+                f'{config_path}: unknown google_native type "{file_type}". '
+                f'Valid types: {", ".join(GOOGLE_NATIVE_TYPES)}.'
+            )
+        if mode not in GOOGLE_NATIVE_MODES:
+            raise SystemExit(
+                f'{config_path}: unknown google_native mode "{mode}" for {file_type}. '
+                f'Valid modes: {", ".join(sorted(GOOGLE_NATIVE_MODES))}.'
+            )
+        modes[file_type] = mode
+    return modes
 def load_config(folder):
     config_path = Path(folder)/ CONFIG_NAME
     if not config_path.exists():
@@ -57,6 +101,10 @@ def load_config(folder):
 
     merged_config = {**DEFAULT_CONFIG, **loaded_config}
     merged_config["schedule"] ={**DEFAULT_CONFIG["schedule"], **loaded_config.get("schedule", {})}
+
+    merged_config["google_native"] = _normalise_google_native(
+        loaded_config.get("google_native"), config_path
+    )
 
     if not merged_config["drive_folder_id"]:
         raise SystemExit(f"{config_path} has no drive_folder_id. Re-run: foldrive init")

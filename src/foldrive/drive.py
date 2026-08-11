@@ -3,7 +3,22 @@ import io,os
 
 FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
 API_MAX_RETRIES = 5
+GOOGLE_NATIVE_EXPORTS ={
+    "application/vnd.google-apps.document": (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx"),
+    "application/vnd.google-apps.spreadsheet": (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".xlsx"),
+    "application/vnd.google-apps.presentation": (
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation", ".pptx"),
+}
 
+# Each native type gets its own mode: .xlsx cannot carry cross-sheet formulas,
+# charts or filter views, so Sheets are far riskier to round-trip than Docs.
+NATIVE_TYPE_KEYS = {
+    "application/vnd.google-apps.document": "docs",
+    "application/vnd.google-apps.spreadsheet": "sheets",
+    "application/vnd.google-apps.presentation": "slides",
+}
 def find_folder_by_name(service, name):
     escaped_name = name.replace("'","\\'")
     response = service.files().list(
@@ -59,9 +74,26 @@ def list_tree(service, folder_id):
                 pending_folders.append((child["id"], child_relative_path))
                 continue
 
+            
+            native_export=GOOGLE_NATIVE_EXPORTS.get(child["mimeType"])
+            if native_export:
+                export_mime, extension = native_export
+                native_relpath = child_relative_path + extension
+                files[native_relpath] = {
+                    "id": child["id"],
+                "size": 0,
+                "md5": None,               # natives have none; never compare on it
+                "modified": child.get("modifiedTime"),
+                "is_google_native": True,
+                "native_mime": child["mimeType"],
+                "export_mime": export_mime,
+                "native_type": NATIVE_TYPE_KEYS[child["mimeType"]],
+                }
+                continue
+
             if child["mimeType"].startswith("application/vnd.google-apps"):
                 skipped_google_native += 1
-                continue 
+                continue
 
             files[child_relative_path] = {
                 "id": child["id"],
@@ -107,4 +139,28 @@ def download(service,file_id,destination_path):
 def rename(service, file_id, new_name):
     return service.files().update(
         fileId=file_id, body={"name": new_name}, fields="id, modifiedTime"
+    ).execute(num_retries=API_MAX_RETRIES)
+
+
+def download_native(service, file_id, export_mime, destination_path):
+    """Google's own API calls this 'export'; to the user it is just a download."""
+    temporary_path = destination_path.with_name(destination_path.name + ".part")
+    request = service.files().export_media(fileId=file_id, mimeType=export_mime)
+    with open(temporary_path, "wb") as open_file:
+        downloader = MediaIoBaseDownload(open_file, request)
+        done = False
+        while not done:
+            _status, done = downloader.next_chunk(num_retries=API_MAX_RETRIES)
+    os.replace(temporary_path, destination_path)
+
+
+def upload_doc(service, file_id, local_path, native_mime):
+    """Send a .docx back INTO the same Doc: same id, same share links, same history.
+    Updating by id is what makes this safe - it can never create a second file."""
+    media = MediaFileUpload(str(local_path), resumable=True)
+    return service.files().update(
+        fileId=file_id,
+        media_body=media,
+        body={"mimeType": native_mime},
+        fields="id, modifiedTime",
     ).execute(num_retries=API_MAX_RETRIES)

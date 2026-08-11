@@ -71,6 +71,28 @@ def push(service, folder, root_folder_id, current_state, actions, local_files, r
                     "drive_file_id": uploaded["id"],
                     "drive_modified": uploaded.get("modifiedTime"),
                 }
+            elif action.kind in ("upload_changed_doc", "upload_changed_doc_keep_drive"):
+                local_path = folder / relative_path
+                remote_entry = remote_files[relative_path]
+
+                if action.kind == "upload_changed_doc_keep_drive":
+                    kept_name = engine.conflict_copy_name(
+                        relative_path, "drive", set(local_files) | set(remote_files)
+                    )
+                    reporter.detail(f"keeping Drive's version as {kept_name}")
+                    drive.download_native(
+                        service, remote_entry["id"], remote_entry["export_mime"],
+                        folder / kept_name,
+                    )
+
+                uploaded = drive.upload_doc(
+                    service, remote_entry["id"], local_path, remote_entry["native_mime"]
+                )
+                local_entry = local_files[relative_path]
+                _record(current_state, relative_path, local_entry["size"], local_entry["mtime"],
+                        None, uploaded["id"], uploaded.get("modifiedTime"))
+                summary["updated"] += 1
+
             elif action.kind == "trash_remote":
                 remote_entry = remote_files.get(relative_path)
                 if remote_entry:
@@ -129,6 +151,30 @@ def pull(service, folder, current_state,actions, local_files,remote_files):
                     summary["downloaded"] += 1
                 else:
                     summary["updated"] += 1
+
+            elif action.kind in ("download_new_doc", "download_changed_doc",
+                                 "download_changed_doc_keep_local"):
+                local_path = folder / relative_path
+                local_path.parent.mkdir(parents=True, exist_ok=True)
+                remote_entry = remote_files[relative_path]
+
+                if action.kind == "download_changed_doc_keep_local" and local_path.exists():
+                    # Nothing is ever silently destroyed: the local edit is renamed
+                    # aside before the fresh download lands on top of it.
+                    kept_name = engine.conflict_copy_name(
+                        relative_path, "local", set(local_files) | set(remote_files)
+                    )
+                    reporter.detail(f"keeping the local edit as {kept_name}")
+                    local_path.rename(folder / kept_name)
+
+                drive.download_native(
+                    service, remote_entry["id"], remote_entry["export_mime"], local_path
+                )
+                file_stat = local_path.stat()
+                # md5 stays None: the snapshot compares Docs by drive_modified only.
+                _record(current_state, relative_path, file_stat.st_size, file_stat.st_mtime,
+                        None, remote_entry["id"], remote_entry.get("modified"))
+                summary["downloaded"] += 1
 
             elif action.kind == "recycle_local":
                 local_path = folder/relative_path
