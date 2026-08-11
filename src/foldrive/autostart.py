@@ -8,6 +8,19 @@ from pathlib import Path
 TASK_NAME = "foldrive-tick"
 INTERVAL_MINUTES = 5
 
+# schtasks' defaults are wrong for a laptop sync tool: it refuses to start on
+# battery and kills a running task the moment you unplug. Those flags can't be set
+# from the schtasks command line, and registering from XML needs elevation, so the
+# task is created the plain way and then patched through the PowerShell API.
+POWER_SETTINGS_SCRIPT = f"""
+$task = Get-ScheduledTask -TaskName '{TASK_NAME}'
+$task.Settings.DisallowStartIfOnBatteries = $false
+$task.Settings.StopIfGoingOnBatteries = $false
+$task.Settings.MultipleInstances = 'IgnoreNew'
+$task.Settings.StartWhenAvailable = $true
+$task | Set-ScheduledTask | Out-Null
+"""
+
 
 def _foldrive_command():
     """The command Task Scheduler should run, however foldrive was installed.
@@ -31,8 +44,22 @@ def _foldrive_command():
     if installed_path:
         return f'"{installed_path}" tick'
 
-    # Installed but not on PATH — call this same interpreter's module directly.
+    # Installed but not on PATH - call this same interpreter's module directly.
     return f'"{sys.executable}" -m foldrive.cli tick'
+
+
+def _allow_running_on_battery():
+    """Returns True if the power settings were relaxed.
+
+    Best-effort: if it fails, the task still syncs whenever the machine is plugged
+    in, which is worth keeping rather than failing the whole install over.
+    """
+    result = subprocess.run(
+        ["powershell", "-NoProfile", "-NonInteractive", "-Command", POWER_SETTINGS_SCRIPT],
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0
 
 
 def install():
@@ -42,6 +69,7 @@ def install():
         "/sc", "minute", "/mo", str(INTERVAL_MINUTES),
         "/f",
     ], check=True)
+    return _allow_running_on_battery()
 
 
 def uninstall():

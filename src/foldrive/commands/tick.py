@@ -26,7 +26,9 @@ def run(args):
     for folder in folders:
         try:
             _tick_one_folder(folder, logger)
-        except Exception as failure:
+        except (Exception, SystemExit) as failure:
+            # SystemExit is a BaseException, so a bare `except Exception` would let
+            # one corrupt config file kill the tick for every remaining folder.
             logger.exception(f"[{folder.name}] unexpected failure: {failure}")
 
 
@@ -45,7 +47,7 @@ def _tick_one_folder(folder, logger):
 
     if not current_state["files"]:
         # A first sync merges two unknown trees; a human should watch that happen.
-        logger.warning(f"[{folder.name}] never synced — run `foldrive sync` once by hand")
+        logger.warning(f"[{folder.name}] never synced - run `foldrive sync` once by hand")
         return
 
     # yes=True: no prompts. Conflicts fall back to keeping both copies.
@@ -68,9 +70,9 @@ def _run_half(command_function, quiet_args, folder, label, logger):
         status = api_error.resp.status
         if status in (403, 429) or status >= 500:
             # Transient: the timestamp stays stale, so the next tick retries.
-            logger.warning(f"[{folder.name}] {label} rate-limited/server error ({status}) — will retry")
+            logger.warning(f"[{folder.name}] {label} rate-limited/server error ({status}) - will retry")
         elif status == 404:
-            logger.error(f"[{folder.name}] {label} failed: Drive folder is gone — re-run `foldrive init`")
+            logger.error(f"[{folder.name}] {label} failed: Drive folder is gone - re-run `foldrive init`")
         else:
             logger.error(f"[{folder.name}] {label} failed: {status} {api_error.reason}")
     except OSError:
