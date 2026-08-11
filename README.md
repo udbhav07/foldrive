@@ -1,229 +1,316 @@
 # foldrive
 
 **Pair any local folder with any Google Drive folder.** Git-style two-way sync —
-`push`, `pull`, `status` — plus per-folder scheduling and automatic catch-up
-after being offline.
+`status`, `push`, `pull` — plus per-folder scheduling and automatic catch-up after
+being offline.
 
-Google's own Drive for Desktop can't map an arbitrary local folder (say,
-`Desktop\7th sem`) to an arbitrary My Drive folder (`My Drive/College/7th sem`)
-— it only mirrors your whole Drive or backs folders up into a separate
-"Computers" section. foldrive exists to fill exactly that gap, with git-like
-explicit control. See [the full comparison](#how-is-this-different-from-google-drive-for-desktop)
-below.
-
-## Quick start
+Google's own Drive for Desktop can't map an arbitrary local folder (say
+`Desktop\7th sem`) to an arbitrary My Drive folder (`My Drive/College/7th sem`).
+foldrive exists to fill exactly that gap.
 
 ```
-pip install foldrive          # (or: pip install -e . from a clone)
-foldrive login                # one-time browser sign-in
-cd "C:\...\7th sem"
-foldrive init                 # links this folder to the Drive folder "7th sem"
-foldrive sync                 # first sync shows the full plan, asks y/n
-foldrive autostart            # optional: background sync on your schedule
+foldrive login                 # one-time browser sign-in
+cd "Desktop/7th sem"
+foldrive init                  # link this folder to the Drive folder "7th sem"
+foldrive status                # see exactly what a sync would do
+foldrive sync                  # do it
+foldrive autostart             # optional: keep it synced every 5 minutes
 ```
 
-Daily use: save files into the folder and forget about it (the scheduler
-pushes/pulls on the intervals in `.googledrive.json`), or drive it manually:
+---
 
-```
-foldrive status         # what's pending, both directions
-foldrive status --all   # ...listing every file, not just the first 40
-foldrive push           # upload local changes now
-foldrive pull           # download Drive changes now
-```
+## Commands
 
-`status` is read-only — it never uploads, downloads, or writes state. It prints
-a count per change type, then the first 40 affected files:
+| Command | What it does |
+|---|---|
+| `foldrive login` / `logout` / `whoami` | Google account sign-in |
+| `foldrive init` | Link the current folder to a Drive folder (creates it if absent) |
+| `foldrive status` | Read-only preview of every pending change, both directions |
+| `foldrive push` | Upload local changes |
+| `foldrive pull` | Download Drive changes |
+| `foldrive sync` | Pull, then push |
+| `foldrive ls <name>` | List a Drive folder's contents by name |
+| `foldrive tick` | Run whatever is due (what the background task calls) |
+| `foldrive autostart` | Register/remove the background task (`--remove`, `--status`) |
+
+Useful flags: `--all` (list every file in `status`), `--yes` (never prompt),
+`--allow-mass-delete` (see [Safety](#safety)).
+
+`status` never writes anything. It prints a count per change type, then the files:
 
 ```
 Folder : C:\Users\me\Desktop\6th sem
 Drive  : 6th sem
 Local  : 336 files    Drive: 163 files
-This folder has never been synced — the first sync merges both sides.
 
-  CONFLICT         -> both sides changed   24 file(s)
-  ...
-  CONFLICT         -> local is newer, keeps the name   CN/Short Notes.docx
-  new in Drive     -> download   25 file(s)
-  identical        -> just remember it   114 file(s)
-  new locally      -> upload   198 file(s)
+  CONFLICT         -> both sides changed        24 file(s)
+  new in Drive     -> download                  25 file(s)
+  new locally      -> upload                   198 file(s)
+  identical        -> just remember it         114 file(s)
 
   new locally      -> upload   CN lab/1/client.cpp
-  ...
   ... and 321 more (use --all to list every file)
 
 361 change(s) pending. Run `foldrive sync` to apply.
 ```
 
-*identical → just remember it* means the file is already the same on both
-sides: foldrive transfers nothing and only records the pairing.
+*identical → just remember it* means the file already matches on both sides:
+nothing transfers, foldrive only records the pairing.
 
-**Ignored by default:** foldrive skips things that are rebuildable or junk —
-`.venv/`, `venv/`, `env/`, `__pycache__/`, `*.pyc`, `node_modules/`, `.git/`,
-`build/`, `dist/`, `*.egg-info/`, `.idea/`, `.vscode/`, plus `~$*`, `*.tmp`,
-`Thumbs.db`, `desktop.ini`, `.DS_Store`. Edit the `ignore` list in
-`.googledrive.json` to change this per folder. (Existing folders keep the list
-written at `init` time — edit the file to pick up new defaults.)
+---
 
-## How is this different from Google Drive for Desktop?
+## Why not Drive for Desktop?
 
-Drive for Desktop is excellent at what it does — real-time, battle-tested
-two-way sync. If all you want is "my whole Drive, mirrored," use it. foldrive
-exists because of the knobs it doesn't have:
+If you want "my whole Drive, mirrored", use Drive for Desktop — it's real-time and
+battle-tested. foldrive exists for the knobs it doesn't have:
 
 | | Drive for Desktop | foldrive |
 |---|---|---|
-| Pair *any* local folder with *any* My Drive folder | ❌ | ✅ the core feature |
-| Where synced folders land in Drive | whole-Drive mirror, or a separate **"Computers"** section | the real **My Drive** folder your phone and browser see |
-| Local folder location | chosen by the app (inside its mirror) | wherever your folder already lives |
-| Sync timing | always-on, real-time only | your schedule per folder (`pull every 30 min, push every 50 min`) — or fully manual |
-| Manual control | none — it just acts | `push` / `pull` / `status`, git-style; first sync shows its full plan and asks before touching anything |
-| Preview of pending changes | ❌ | `foldrive status` (`--all` for the full list) |
-| Scriptable / CLI | ❌ | ✅ everything is a command |
-| Config as a file | ❌ | `.googledrive.json` per folder, editable, versionable |
-| Footprint | always-running background app | small Python CLI + a 5-minute scheduled task |
-| Source | closed | open — a few hundred lines you can read |
+| Pair *any* local folder with *any* Drive folder | ❌ | ✅ the core feature |
+| Where folders land in Drive | whole-Drive mirror, or a separate **"Computers"** section | the real **My Drive** folder your phone sees |
+| Sync timing | always-on, real-time | your schedule per folder, or fully manual |
+| Preview before it acts | ❌ | `foldrive status` |
+| Scriptable | ❌ | ✅ everything is a command |
+| Config | ❌ | `.googledrive.json` per folder |
+| Footprint | always-running app | a 5-minute scheduled task |
 
-**The dealbreaker scenario foldrive was built for:** you keep `Desktop\7th sem`
-locally and `My Drive/College/7th sem` in the cloud. Drive for Desktop can't
-connect those two — backing up the local folder puts it in "Computers → My
-Laptop", a *separate tree* from My Drive, so a PDF you save to the My Drive
-folder from your phone never reaches your laptop. foldrive pairs the two
-folders directly, both directions.
+**The scenario it was built for:** you keep `Desktop\7th sem` locally and
+`My Drive/College/7th sem` in the cloud. Drive for Desktop can't connect those —
+backing up the local folder puts it under "Computers → My Laptop", a *separate
+tree*, so a PDF you save from your phone never reaches your laptop.
 
-What Drive for Desktop does better, honestly: instant real-time propagation
-(foldrive's scheduler works in minutes, not seconds), years of hardening, and
-zero setup for the whole-Drive-mirror case. foldrive trades that for control,
-transparency, and folder pairing.
+Honestly, what Drive for Desktop does better: instant propagation (foldrive works
+in minutes), years of hardening, and zero setup for the mirror case.
 
-## One-time Google setup (app owner only)
+---
 
-If you installed a build that bundles a `client_secret.json`, skip this — just
-run `foldrive login`. (You'll see Google's "unverified app" warning once; click
-**Advanced → Go to foldrive → Allow**. That's expected for small personal
-tools; verification is a paid audit meant for commercial apps.)
+## Configuration
 
-To use your own (free) Google OAuth app instead:
-
-1. Go to <https://console.cloud.google.com> → create a project (any name).
-2. **APIs & Services → Library** → search *Google Drive API* → **Enable**.
-3. **APIs & Services → OAuth consent screen** → User type **External** → fill
-   in an app name and your email → save → **Publish app** ("In production").
-   *Don't skip publishing: in "Testing" status Google expires your login every
-   7 days.*
-4. **APIs & Services → Credentials → Create credentials → OAuth client ID** →
-   Application type **Desktop app** → **Download JSON**.
-5. Save the file as `%APPDATA%\foldrive\client_secret.json`.
-6. `foldrive login`.
-
-Privacy model: `client_secret.json` identifies the *app* and grants access to
-nothing. Your login creates `%APPDATA%\foldrive\token.json`, which opens *your*
-Drive only — different users of the same app can never see each other's files.
-Revoke anytime at <https://myaccount.google.com/permissions>.
-
-## Notes
-
-- Deletions are always soft: Drive trash on the remote side, Recycle Bin
-  locally. Nothing foldrive does is unrecoverable.
-- Conflicts (same file differs on both sides) never lose data. The newer
-  version keeps the original name; the other is preserved beside it as
-  `notes (local copy).docx` or `notes (drive copy).docx` — the label says which
-  side that version came from. Both files end up on **both** sides; you keep
-  the one you want and delete the other.
-  - Timestamps within 5 seconds of each other count as a tie (the two clocks
-    aren't the same) — then there's no winner and both copies are kept.
-  - Run it in a terminal and foldrive asks per conflict:
-    `[k]eep both / [l]ocal wins / [d]rive wins / [s]kip / [K]eep both for all`.
-    Scheduled runs never ask — they always keep both.
-  - Set `"conflict_policy": "keep_both"` in `.googledrive.json` to skip the
-    prompts in manual runs too (`"ask"` is the default).
-
-### What resolving one conflict does
-
-Say `notes.docx` differs on both sides and the local copy is newer
-(`winner = local`). foldrive:
-
-1. Downloads Drive's version and saves it locally as `notes (drive copy).docx`
-2. Uploads that same file back to Drive as `notes (drive copy).docx`
-3. Uploads the local `notes.docx`, overwriting Drive's copy — the winner keeps
-   the original name
-4. Records both files in the snapshot, so the next run sees them as settled
-
-When Drive's copy is newer the steps mirror: the local file is renamed to
-`notes (local copy).docx` and uploaded, Drive's version is downloaded over
-`notes.docx`. On a tie neither keeps the name — both `(local copy)` and
-`(drive copy)` are written to both sides.
-
-Either way both sides end up identical, with every version still present.
-
-Note that `notes.docx` here means a **real Word file** — one that was uploaded
-to Drive as a `.docx`. A Google Doc is a different thing entirely; see below.
-
-### Google Docs, Sheets and Slides
-
-Google-native files are **currently skipped**, and `status` reports how many.
-They aren't files in the normal sense: they have no bytes to download and no
-checksum, so nothing to compare or transfer.
-
-This surprises people, so worth stating plainly: **opening a `.txt` or `.docx`
-in the Drive web UI and editing it usually creates a separate Google Doc**
-rather than changing the original file. Your original stays untouched, and
-foldrive keeps syncing that — while the new Doc is skipped. To genuinely change
-a file's contents in Drive, use *right-click → Manage versions → Upload new
-version*, or just edit it locally and let foldrive push it.
-
-Planned support, configurable per type in `.googledrive.json`:
+`foldrive init` writes `.googledrive.json` into the folder. Everything is optional
+except the Drive folder id.
 
 ```json
-"google_native": {
-  "document":     { "mode": "download_only", "format": "docx" },
-  "presentation": { "mode": "download_only", "format": "pptx" },
-  "spreadsheet":  { "mode": "skip",          "format": "xlsx" }
+{
+  "drive_folder_id": "1ddlbDTp...",
+  "drive_folder_name": "7th sem",
+
+  "schedule": { "pull_every_minutes": 30, "push_every_minutes": 50 },
+
+  "ignore": [".venv/", "__pycache__/", "node_modules/", "*.tmp", "~$*"],
+
+  "conflict_policy": "ask",
+  "conflict_overrides": { "notes/scratch.txt": "local" },
+
+  "delete_policy": { "local": "trash", "drive": "trash" },
+  "max_delete_percent": 25,
+  "max_delete_minimum": 10,
+
+  "google_native": { "docs": "download_only", "sheets": "skip", "slides": "download_only" }
 }
 ```
+
+**Ignored by default:** rebuildable or junk files — `.venv/`, `venv/`, `env/`,
+`__pycache__/`, `*.pyc`, `node_modules/`, `.git/`, `build/`, `dist/`, `*.egg-info/`,
+`.idea/`, `.vscode/`, `~$*`, `*.tmp`, `Thumbs.db`, `desktop.ini`, `.DS_Store`.
+Existing folders keep the list written at `init` time.
+
+---
+
+## Conflicts
+
+A conflict is the same file changed on **both** sides since the last sync. Nothing
+is ever lost: the newer version keeps the original name, the other is preserved
+beside it as `notes (local copy).docx` or `notes (drive copy).docx`. Both files end
+up on both sides — keep the one you want, delete the other.
+
+Timestamps within **5 seconds** count as a tie (the two clocks aren't the same);
+then neither keeps the name and both copies are written.
+
+In a terminal, foldrive asks once per conflict — and asks *before* any transfer
+starts, so you answer in the first few seconds and the rest runs unattended:
+
+```
+[k]eep both  [l]ocal wins  [d]rive wins  [s]kip
+[K]/[L]/[D]/[S] to apply that to all remaining
+```
+
+Scheduled runs never prompt; they always keep both. Set
+`"conflict_policy": "keep_both"` to skip prompting in manual runs too, or pin
+individual files with `conflict_overrides`.
+
+---
+
+## Deletions
+
+Deleting a file on one side deletes it on the other **recoverably** — Recycle Bin
+locally, Drive trash remotely. Nothing foldrive does is unrecoverable.
+
+Set `delete_policy` per side, naming the side files are deleted **from**:
+
+```json
+"delete_policy": { "local": "trash", "drive": "never_delete" }
+```
+
+That's the backup setup: local cleanup works normally, but **Drive keeps
+everything forever**. `status` reports what's being kept as a footnote.
+
+A shorthand string applies to both sides: `"delete_policy": "never_delete"`.
+
+---
+
+## Google Docs, Sheets and Slides
+
+Google-native files have no bytes and no checksum, so they're handled separately —
+configurable per type:
 
 | Mode | Drive changes | Local changes | Both change |
 |---|---|---|---|
 | `skip` | ignored | ignored | ignored |
-| `download_only` | re-export over the local file | not pushed; `status` warns | local file kept as `Notes (local copy).docx`, then re-exported |
-| `upload_only` | not pulled; `status` warns | converted back into the same Doc | Drive version kept as a copy, then local uploaded |
-| `two_way` | re-export over the local file | converted back into the same Doc | usual conflict rules |
+| `download_only` | download over the local file | not uploaded; `status` warns | local kept as a copy, then downloaded |
+| `upload_only` | not downloaded; `status` warns | uploaded back into the same Doc | Drive version kept as a copy |
+| `two_way` | download over the local file | uploaded back into the same Doc | usual conflict rules |
 
-`download_only` is what **rclone** does — its Drive backend exports natives to a
-chosen format and can't upload them back, so bisync handles Docs one-way only.
-`upload_only` and `two_way` have no rclone equivalent: writing a local edit back
-into the *same* Drive document is what foldrive adds on top.
+A Doc named `Notes` is the local file `Notes.docx`. Uploading writes back into the
+**same** Drive document — same id, same share links, same version history, no
+duplicate. There's one file per side, never a shadow copy.
 
-There's still just **one file on each side**: Drive's `Notes` and your local
-`Notes.docx` are the same document. `two_way` syncs it like any other file —
-edits in Drive refresh the local copy, local edits convert back into the *same*
-Doc (same id, same share links, same version history, no duplicate file) — and
-if both sides changed you get `Notes (drive copy).docx` as usual.
+**Defaults are `docs: download_only`, `slides: download_only`, `sheets: skip`,**
+because `.xlsx` mangles cross-sheet formulas, charts and filter views — a round
+trip can quietly break a working spreadsheet. `.docx` loses comments and
+suggestion mode. Nothing is destroyed silently in any mode: the losing side is
+always preserved as a copy first.
 
-**Nothing is silently destroyed in any mode.** Even under `download_only`, a
-locally-edited file is renamed to `Notes (local copy).docx` before the fresh
-export lands, so an accidental local edit can't vanish.
+There is no "upload a new local `.docx` as a Doc" — Docs are born in Drive;
+foldrive carries edits back into one that already exists.
 
-**Why `two_way` is lossy:** a Google Doc holds things `.docx` can't represent
-(comments, suggestion mode, some formatting), and a Sheet holds cross-sheet
-formulas, charts and filters that `.xlsx` mangles. Pushing a locally-edited copy
-rebuilds the Drive document from the converted file, so those extras are lost.
-That's why Docs and Slides default to `download_only` and Sheets to `skip`.
+Change detection uses Drive's modification time, not a checksum, because exporting
+the same untouched document twice produces different bytes.
 
-Change detection for native files uses Drive's modified time rather than a
-checksum, since exporting the same document twice doesn't produce identical
-bytes.
+> **A common surprise:** opening a `.txt` or `.docx` in the Drive web UI and
+> editing it usually creates a *separate* Google Doc rather than changing the
+> original. To really change a file in Drive, use *right-click → Manage versions →
+> Upload new version*, or edit it locally and let foldrive push it.
 
-- Folders inside OneDrive work, but two sync agents over one tree can be
-  noisy; a sync root outside OneDrive is calmer.
+---
 
-## Status
+## Safety
 
-Under active development.
+- **First sync never deletes.** With no snapshot, "deleted" and "never synced" are
+  indistinguishable, so foldrive assumes the safer one and keeps both sides.
+- **Mass-delete guard.** A run that would delete at least `max_delete_minimum`
+  files *and* at least `max_delete_percent` of a side is refused:
 
-Working today: `login`, `whoami`, `logout`, `ls`, `init`, `status`
-(`--all`) — foldrive can link a folder pair and tell you exactly what a sync
-would do, in both directions, including conflicts.
+  ```
+  Refusing to continue: this would move 384 of 384 local files (100%) to the Recycle Bin.
+  That usually means the other side looked empty when it should not have.
+  ```
 
-Coming next: `push` (uploads), then `pull`/`sync` with conflict copies, then
-the scheduler (`tick`/`autostart`), then packaging.
+  Override with `--allow-mass-delete`. **The background task can never override
+  it** — the escape hatch is unavailable to unattended runs by design.
+- **Interruptions are cheap.** Progress is saved every 25 transfers, so Ctrl-C or a
+  crash costs at most a few files of re-work. Re-running never creates duplicates:
+  files already uploaded come back as *identical → just remember it*.
+- **Offline is not an error.** Timestamps only advance on success, so a folder that
+  couldn't sync stays due and catches up on the next run.
+
+---
+
+## Background sync
+
+```
+foldrive autostart            # every 5 minutes
+foldrive autostart --status
+foldrive autostart --remove
+```
+
+On Windows this registers a Task Scheduler job that runs without a console window
+and **keeps working on battery**. Logs go to the app folder (`foldrive.log`,
+rotated at 1 MB).
+
+On macOS and Linux, `autostart` isn't implemented yet — use cron, which calls the
+same command:
+
+```
+*/5 * * * * foldrive tick
+```
+
+---
+
+## Install
+
+Not on PyPI yet — install from a clone:
+
+```
+git clone <this repo> && cd foldrive
+python -m venv .venv && .venv\Scripts\activate     # macOS/Linux: source .venv/bin/activate
+pip install -e .
+```
+
+Then the one-time Google setup, unless you installed a build with a bundled
+`client_secret.json` (in which case just run `foldrive login` and accept the
+"unverified app" warning once — **Advanced → Go to foldrive → Allow**).
+
+<details>
+<summary>Using your own free Google OAuth app</summary>
+
+1. <https://console.cloud.google.com> → create a project.
+2. **APIs & Services → Library** → *Google Drive API* → **Enable**.
+3. **OAuth consent screen** → User type **External** → app name + your email →
+   **Publish app**. *Don't skip publishing: in "Testing" status Google expires
+   your login every 7 days.*
+4. **Credentials → Create credentials → OAuth client ID** → **Desktop app** →
+   **Download JSON**.
+5. Save it as `client_secret.json` in foldrive's app folder:
+
+   | | |
+   |---|---|
+   | Windows | `%APPDATA%\foldrive\` |
+   | macOS | `~/Library/Application Support/foldrive/` |
+   | Linux | `~/.local/share/foldrive/` |
+
+6. `foldrive login`.
+
+`client_secret.json` identifies the *app* and grants access to nothing. Your login
+creates `token.json` beside it, which opens *your* Drive only. Revoke anytime at
+<https://myaccount.google.com/permissions>.
+</details>
+
+---
+
+## Platform support
+
+| | Windows | macOS | Linux |
+|---|---|---|---|
+| Sync (`init`, `status`, `push`, `pull`, `sync`) | ✅ | ✅ | ✅ |
+| Background sync (`autostart`) | ✅ | cron | cron |
+
+## Notes
+
+- Folders inside OneDrive work, but two sync agents over one tree can be noisy; a
+  sync root outside OneDrive is calmer.
+- Drive allows two files with the same name in one folder; foldrive matches by
+  path and won't create duplicates on re-runs.
+
+---
+
+
+## Contributing
+
+Issues and pull requests are welcome. Before opening a PR:
+
+```
+pytest                     # unit tests for the diff engine
+foldrive status            # smoke-test against a scratch folder, not real data
+```
+
+Please use a throwaway sync folder for manual testing — the whole point of this
+tool is that it moves real files around.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+## Contact
+
+Udbhav Sai — <udbhavsai.k@gmail.com>
+

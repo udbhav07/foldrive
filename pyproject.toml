@@ -8,7 +8,19 @@ version = "0.1.0"
 description = "Pair any local folder with any Google Drive folder - git-style two-way sync"
 readme = "README.md"
 requires-python = ">=3.10"
-authors = [{ name = "Udbhav Sai" }]
+authors = [{ name = "Udbhav Sai", email = "udbhavsai.k@gmail.com" }]
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["google-drive", "sync", "cli", "backup"]
+classifiers = [
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: System :: Archiving :: Backup",
+]
 dependencies = [
     "google-api-python-client>=2.100",
     "google-auth-oauthlib>=1.2",
