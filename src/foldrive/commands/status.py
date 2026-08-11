@@ -48,6 +48,9 @@ def run(args):
     actions, native_notes = engine.apply_google_native_mode(
         actions, remote_files, folder_config["google_native"]
     )
+    actions, delete_notes = engine.apply_delete_policy(
+        actions, folder_config["delete_policy"]
+    )
     if is_first_sync:
         actions = engine.downgrade_for_first_sync(actions)
 
@@ -83,7 +86,7 @@ def run(args):
         print()
         print(f"{len(actions)} change(s) pending. Run `foldrive sync` to apply.")
 
-    for note in native_notes:
+    for note in native_notes + delete_notes:
         print(f"\n({note})")
 
     if skipped_google_native:

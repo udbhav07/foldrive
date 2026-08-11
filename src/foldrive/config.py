@@ -43,10 +43,63 @@ DEFAULT_CONFIG = {
     # Per-file standing answers, e.g. {"notes/scratch.txt": "local"}.
     # Checked before prompting; values: keep_both | local | drive | skip.
     "conflict_overrides": {},
-    "delete_policy": "trash",
+    # Per side, naming the side a file is deleted FROM. See _normalise_delete_policy.
+    "delete_policy": {"local": "trash", "drive": "trash"},
+    # Safety net against bugs that make one side look empty. A run is refused when
+    # it would delete at least max_delete_minimum files AND at least
+    # max_delete_percent of that side. Set max_delete_percent to 0 to disable.
+    "max_delete_percent": 25,
+    "max_delete_minimum": 10,
     # Google Docs/Sheets/Slides, per type. See _normalise_google_native below.
     "google_native": {"docs": "download_only", "sheets": "skip", "slides": "download_only"},
 }
+
+DELETE_POLICIES = {
+    "trash",         # deletions propagate, recoverably (Recycle Bin / Drive trash)
+    "never_delete",  # deletions never propagate; the other side keeps the file
+}
+# The key names the side a file is deleted FROM: "drive" governs trashing files in
+# Drive, "local" governs recycling local files. Getting this backwards would
+# silently invert the guarantee, so it is spelled out here and unit-tested.
+DELETE_SIDES = ("local", "drive")
+DEFAULT_DELETE_POLICY = {"local": "trash", "drive": "trash"}
+
+
+def _normalise_delete_policy(raw_value, config_path):
+    """Accepts one policy name for both sides, or a per-side object.
+    Always returns the per-side dict, so no caller handles two shapes."""
+    if raw_value is None:
+        return dict(DEFAULT_DELETE_POLICY)
+
+    if isinstance(raw_value, str):
+        if raw_value not in DELETE_POLICIES:
+            raise SystemExit(
+                f'{config_path}: unknown delete_policy "{raw_value}". '
+                f'Valid policies: {", ".join(sorted(DELETE_POLICIES))}.'
+            )
+        return {side: raw_value for side in DELETE_SIDES}
+
+    if not isinstance(raw_value, dict):
+        raise SystemExit(
+            f'{config_path}: "delete_policy" must be a policy name or an object '
+            f'with the keys {", ".join(DELETE_SIDES)}.'
+        )
+
+    policies = dict(DEFAULT_DELETE_POLICY)
+    for side, policy in raw_value.items():
+        if side not in DELETE_SIDES:
+            raise SystemExit(
+                f'{config_path}: unknown delete_policy side "{side}". '
+                f'Valid sides: {", ".join(DELETE_SIDES)}.'
+            )
+        if policy not in DELETE_POLICIES:
+            raise SystemExit(
+                f'{config_path}: unknown delete_policy "{policy}" for {side}. '
+                f'Valid policies: {", ".join(sorted(DELETE_POLICIES))}.'
+            )
+        policies[side] = policy
+    return policies
+
 
 GOOGLE_NATIVE_MODES = {"skip", "download_only", "upload_only", "two_way"}
 GOOGLE_NATIVE_TYPES = ("docs", "sheets", "slides")
@@ -104,6 +157,9 @@ def load_config(folder):
 
     merged_config["google_native"] = _normalise_google_native(
         loaded_config.get("google_native"), config_path
+    )
+    merged_config["delete_policy"] = _normalise_delete_policy(
+        loaded_config.get("delete_policy"), config_path
     )
 
     if not merged_config["drive_folder_id"]:

@@ -40,18 +40,6 @@ DOC_UPLOAD_KINDS = {
 DOWNLOAD_KINDS |= DOC_DOWNLOAD_KINDS
 UPLOAD_KINDS |= DOC_UPLOAD_KINDS
 
-DOC_DOWNLOAD_KINDS = {
-    "download_new_doc",
-    "download_changed_doc",
-    "download_changed_doc_keep_local",
-}
-DOC_UPLOAD_KINDS = {
-    "upload_changed_doc",
-    "upload_changed_doc_keep_drive",
-}
-DOWNLOAD_KINDS |= DOC_DOWNLOAD_KINDS
-UPLOAD_KINDS |= DOC_UPLOAD_KINDS
-
 
 @dataclass
 class Action:
@@ -185,6 +173,87 @@ def classify(local_files, remote_files, snapshot_files):
             actions.append(Action("forget", relative_path, "gone from both sides"))
 
     return actions
+
+
+# Which side each deletion removes a file FROM. Reads backwards at a glance:
+# trash_remote deletes from Drive, recycle_local deletes from the local disk.
+# Inverting this would silently reverse the delete_policy guarantee.
+DELETE_SIDE = {
+    "recycle_local": "local",
+    "trash_remote": "drive",
+}
+
+
+def apply_delete_policy(actions, policies):
+    """Drop deletions on any side set to never_delete. Returns (actions, notes).
+
+    The snapshot entry is deliberately left in place, so the file simply stays on
+    the other side rather than coming back on the next sync. Notes are footnotes,
+    not pending changes: the situation is permanent by design, so counting it
+    would mean `status` could never print "Everything is in sync." again.
+    """
+    kept = []
+    dropped = {"local": [], "drive": []}
+
+    for action in actions:
+        side = DELETE_SIDE.get(action.kind)
+        if side and policies.get(side) == "never_delete":
+            dropped[side].append(action.relpath)
+        else:
+            kept.append(action)
+
+    notes = []
+    if dropped["drive"]:
+        notes.append(
+            f'{len(dropped["drive"])} file(s) deleted locally are kept in Drive '
+            f'(delete_policy for drive is "never_delete").'
+        )
+    if dropped["local"]:
+        notes.append(
+            f'{len(dropped["local"])} file(s) deleted in Drive are kept locally '
+            f'(delete_policy for local is "never_delete").'
+        )
+    return kept, notes
+
+
+def mass_delete_check(actions,local_count,remote_count,max_percent,minimum_count):
+    """Refuse runs that would delete an implausible share of a folder.
+
+    A bug that makes one side look empty turns into silent mass deletion: every
+    file "vanished remotely", so every local copy goes to the Recycle Bin and the
+    run reports success. Deleting most of a folder at once is rare enough that
+    asking for confirmation costs nothing and converts that class of bug into a
+    message. Returns the message, or None if the run looks ordinary.
+
+    Two thresholds, because either alone misfires: a percentage would trip on
+    deleting 3 of 4 files in a tiny folder, and a bare count would trip on a
+    routine cleanup of 20 files out of 4000.
+    """
+
+    if max_percent <=0 :
+        return None
+
+    for kind, side, destination, total in (
+        ("recycle_local", "local files", "the Recycle Bin", local_count),
+        ("trash_remote", "Drive files", "Drive's trash", remote_count),
+    ):
+        deleting = sum(1 for action in actions if action.kind == kind)
+        if total == 0 or deleting < minimum_count:
+            continue
+        share = 100 * deleting / total
+        if share < max_percent:
+            continue
+        return (
+            f"Refusing to continue: this would move {deleting} of {total} {side} "
+            f"({share:.0f}%) to {destination}.\n"
+            f"That usually means the other side looked empty when it should not have "
+            f"- a network, permissions or configuration problem.\n"
+            f"Run `foldrive status` to see what changed. If this really is what you "
+            f"want, re-run with --allow-mass-delete."
+        )
+    return None
+
+
 
 
 def apply_google_native_mode(actions, remote_files, modes):

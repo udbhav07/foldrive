@@ -36,7 +36,17 @@ def run(args):
     )
     if is_first_sync:
         actions = engine.downgrade_for_first_sync(actions)
-
+    # Before the guard: deletions dropped here must not count toward its threshold.
+    actions, _delete_notes = engine.apply_delete_policy(
+        actions, folder_config["delete_policy"]
+    )
+    refusal = engine.mass_delete_check(
+        actions, len(local_files), len(remote_files),
+        folder_config["max_delete_percent"], folder_config["max_delete_minimum"],
+    )
+    if refusal and not getattr(args, "allow_mass_delete", False):
+        raise SystemExit(refusal)
+    
     pull_actions = [a for a in actions if a.kind in engine.DOWNLOAD_KINDS or a.kind in ("link", "forget")]
     conflicts = [a for a in actions if a.kind in ("conflict", "conflict_doc")]
 

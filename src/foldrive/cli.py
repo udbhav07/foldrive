@@ -79,6 +79,11 @@ def main():
         action="store_true",
         help="Skip the first-sync confirmation prompt",
     )
+    p.add_argument(
+        "--allow-mass-delete",
+        action="store_true",
+        help="Permit a run that would delete most of the folder",
+    )
     p.set_defaults(func=push.run)
 
     p = sub.add_parser(
@@ -90,6 +95,11 @@ def main():
         action="store_true",
         help="Never prompt; use safe defaults",
     )
+    p.add_argument(
+        "--allow-mass-delete",
+        action="store_true",
+        help="Permit a run that would delete most of the folder",
+    )
     p.set_defaults(func=pull.run)
 
     p = sub.add_parser(
@@ -100,6 +110,11 @@ def main():
         "--yes",
         action="store_true",
         help="Never prompt; use safe defaults",
+    )
+    p.add_argument(
+        "--allow-mass-delete",
+        action="store_true",
+        help="Permit a run that would delete most of the folder",
     )
     p.set_defaults(func=sync.run)
 
