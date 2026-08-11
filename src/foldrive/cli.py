@@ -118,7 +118,13 @@ def main():
     p.set_defaults(func=autostart.run)
 
     args = parser.parse_args()
-    args.func(args)
+    try:
+        args.func(args)
+    except KeyboardInterrupt:
+        # Ctrl-C is a normal way to stop a long sync, not a crash. Each command
+        # saves its snapshot in a `finally`, so whatever finished is already
+        # recorded and the next run picks up from there.
+        raise SystemExit("\nInterrupted. Finished files are saved - re-run to continue.")
 
 
 if __name__ == "__main__":

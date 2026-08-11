@@ -2,13 +2,14 @@ from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 import io,os
 
 FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
+API_MAX_RETRIES = 5
 
 def find_folder_by_name(service, name):
     escaped_name = name.replace("'","\\'")
     response = service.files().list(
         q=f"name = '{escaped_name}' and mimeType = '{FOLDER_MIME_TYPE}' and trashed = false",
         fields="files(id,name,parents)",
-    ).execute()
+    ).execute(num_retries=API_MAX_RETRIES)
     return response["files"]
 
 def list_children(service, folder_id):
@@ -20,7 +21,7 @@ def list_children(service, folder_id):
             fields="nextPageToken, files(id, name, mimeType, size, md5Checksum, modifiedTime)",
             pageSize=1000,
             pageToken=page_token,
-        ).execute()
+        ).execute(num_retries=API_MAX_RETRIES)
         all_children.extend(response["files"])
         page_token = response.get("nextPageToken")
         if page_token is None:
@@ -32,7 +33,7 @@ def create_folder(service, folder_name, parent_id=None):
     folder_metadata = {"name": folder_name, "mimeType": FOLDER_MIME_TYPE}
     if parent_id is not None:
         folder_metadata["parents"] = [parent_id]
-    created_folder = service.files().create(body=folder_metadata, fields="id").execute()
+    created_folder = service.files().create(body=folder_metadata, fields="id").execute(num_retries=API_MAX_RETRIES)
     return created_folder["id"]
 
 
@@ -78,7 +79,7 @@ def upload(service, local_path, parent_id, name):
         body={"name": name, "parents":[parent_id]},
         media_body=media,
         fields="id, md5Checksum, modifiedTime, size",
-    ).execute()
+    ).execute(num_retries=API_MAX_RETRIES)
 
 def update(service,file_id,local_path):
     media=MediaFileUpload(str(local_path),resumable=True)
@@ -86,12 +87,12 @@ def update(service,file_id,local_path):
         fileId=file_id,
         media_body=media,
         fields="id, md5Checksum, modifiedTime, size",
-    ).execute()
+    ).execute(num_retries=API_MAX_RETRIES)
 
 def trash(service,file_id):
     service.files().update(
         fileId=file_id, body={"trashed":True}
-    ).execute()
+    ).execute(num_retries=API_MAX_RETRIES)
 
 def download(service,file_id,destination_path):
     temporary_path = destination_path.with_name(destination_path.name + ".part")
@@ -100,10 +101,10 @@ def download(service,file_id,destination_path):
         downloader = MediaIoBaseDownload(open_file,request)
         done = False
         while not done:
-            _status,done =downloader.next_chunk()
+            _status,done =downloader.next_chunk(num_retries=API_MAX_RETRIES)
     os.replace(temporary_path,destination_path)
 
 def rename(service, file_id, new_name):
     return service.files().update(
         fileId=file_id, body={"name": new_name}, fields="id, modifiedTime"
-    ).execute()
+    ).execute(num_retries=API_MAX_RETRIES)

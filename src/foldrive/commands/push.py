@@ -77,7 +77,7 @@ def run(args):
                 service, folder, folder_config["drive_folder_id"], current_state,
                 conflict_choices, local_files, remote_files,
             )
-        current_state["last_pull_ok"]=datetime.now(timezone.utc)
+        current_state["last_push_ok"] = datetime.now(timezone.utc).isoformat()
     finally:
         # Saved even on Ctrl-C: whatever succeeded stays remembered.
         state.save_state(folder, current_state)
