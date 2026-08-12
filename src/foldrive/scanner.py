@@ -1,6 +1,7 @@
 import fnmatch
 import hashlib
 import os
+import sys
 from pathlib import Path
 
 HASH_CHUNK_SIZE = 1024*1024 #1MiB
@@ -35,7 +36,25 @@ def scan(folder,ignore_patterns, previous_files):
     directory_patterns,file_patterns = _split_patterns(ignore_patterns)
     scanned_files = {}
 
-    for current_directory, subdirectory_names, file_names in os.walk(folder):
+    def on_walk_error(walk_error):
+        """os.walk ignores unreadable directories by default: they simply vanish
+        from the results, which is indistinguishable from "those files were
+        deleted" - so foldrive would trash them in Drive. Refuse instead of
+        guessing, and name the directory that could not be read.
+        """
+        message = f"Cannot read {walk_error.filename}: {walk_error.strerror}"
+        if sys.platform == "darwin":
+            message += (
+                "\n\nOn macOS, background tools need Full Disk Access to read "
+                "~/Desktop, ~/Documents\nand ~/Downloads. Grant it to whatever runs "
+                "foldrive:\n"
+                "  System Settings -> Privacy & Security -> Full Disk Access -> +\n"
+                "  -> Cmd-Shift-G -> /usr/sbin/cron   (and your terminal app, for "
+                "manual runs)"
+            )
+        raise SystemExit(message)
+
+    for current_directory, subdirectory_names, file_names in os.walk(folder, onerror=on_walk_error):
         subdirectory_names[:] = [
             name for name in subdirectory_names
             if not _matches_any_pattern(name, directory_patterns)

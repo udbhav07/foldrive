@@ -224,16 +224,37 @@ foldrive autostart --status
 foldrive autostart --remove
 ```
 
-On Windows this registers a Task Scheduler job that runs without a console window
-and **keeps working on battery**. Logs go to the app folder (`foldrive.log`,
-rotated at 1 MB).
+Works on all three platforms — the same `foldrive tick` command, registered
+whichever way the OS expects:
 
-On macOS and Linux, `autostart` isn't implemented yet — use cron, which calls the
-same command:
+| | How it's registered |
+|---|---|
+| Windows | Task Scheduler job, no console window, **keeps working on battery** |
+| macOS / Linux | a `crontab` line, tagged `# foldrive-tick` |
+
+`--remove` only ever touches foldrive's own entry — your other cron jobs are left
+exactly as they were.
+
+Logs go to the app folder as `foldrive.log`, rotated at 1 MB. Nothing is printed
+to a terminal, so the log is where you check whether it's working:
 
 ```
-*/5 * * * * foldrive tick
+2026-08-12 14:37:02  INFO   [6th sem] pull ok
+2026-08-12 14:42:03  INFO   offline-nothing attempted
 ```
+
+> **macOS one-time permission.** Any folder works, but `~/Desktop`, `~/Documents`
+> and `~/Downloads` are protected by macOS, so you allow access once — the same
+> grant Dropbox and every backup tool asks for. Folders anywhere else
+> (`~/projects`, `~/college`) need nothing.
+>
+> **System Settings → Privacy & Security → Full Disk Access → `+`**, then add:
+>
+> - your terminal app (Terminal or iTerm) — for commands you run yourself
+> - `/usr/sbin/cron` — for background sync (press ⌘⇧G to type the path, it's hidden)
+>
+> Until then foldrive stops with `Cannot read <folder>: Operation not permitted`
+> instead of syncing only the part it can see.
 
 ---
 
@@ -290,14 +311,31 @@ anytime at <https://myaccount.google.com/permissions>.
 | | Windows | macOS | Linux |
 |---|---|---|---|
 | Sync (`init`, `status`, `push`, `pull`, `sync`) | ✅ | ✅ | ✅ |
-| Background sync (`autostart`) | ✅ | cron | cron |
+| Background sync (`autostart`) | ✅ Task Scheduler | ✅ cron | ✅ cron |
+
+Config, token and logs live in the standard place for each OS:
+`%APPDATA%\foldrive\`, `~/Library/Application Support/foldrive/`,
+`~/.local/share/foldrive/`.
 
 ## Notes
 
-- Folders inside OneDrive work, but two sync agents over one tree can be noisy; a
-  sync root outside OneDrive is calmer.
+- **If any folder can't be read, foldrive stops and says which one.** It never
+  syncs a partial view of your files — an unreadable folder is indistinguishable
+  from a deleted one, and guessing would mean trashing files in Drive that are
+  still there.
+- **Cloud-backed folders** (OneDrive, iCloud Drive) work, with two caveats. Two
+  sync agents over one tree can be noisy, so a sync root outside them is calmer.
+  And both keep files "online-only" until opened — those placeholders have no
+  local content to hash, so make sure the folder is fully downloaded before the
+  first sync.
+- **External drives on macOS** need their own permission: System Settings →
+  Privacy & Security → **Files and Folders** (or Full Disk Access) → allow access
+  to removable volumes. Otherwise the same "Cannot read" refusal applies.
 - Drive allows two files with the same name in one folder; foldrive matches by
   path and won't create duplicates on re-runs.
+- **Case-sensitivity differs by OS.** Linux treats `Notes.txt` and `notes.txt` as
+  two files; macOS and Windows usually don't. If a Drive folder holds both, only
+  one survives locally on macOS/Windows.
 
 ---
 
