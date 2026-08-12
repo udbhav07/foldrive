@@ -1,4 +1,6 @@
 import json
+from pathlib import Path
+
 from .paths import REGISTRY_PATH
 
 CONFIG_NAME = ".googledrive.json"

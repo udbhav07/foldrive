@@ -7,8 +7,18 @@ from .. import auth,config,logs,scheduler,state
 from . import pull,push
 
 def run(args):
-    logger=logs.get_logger()
+    """Outermost guard. Nothing here may fail silently: this runs unattended, so an
+    unlogged crash means the user's folders quietly stop syncing with no clue why -
+    Task Scheduler records only "Last Result: 1", which nobody is watching."""
+    logger = logs.get_logger()
+    try:
+        _run_all(logger)
+    except (Exception, SystemExit) as failure:
+        logger.exception(f"tick aborted: {failure}")
+        raise
 
+
+def _run_all(logger):
     if not scheduler.is_online():
         logger.info("offline-nothing attempted")
         return
