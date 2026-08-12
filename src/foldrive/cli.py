@@ -4,7 +4,8 @@ import argparse
 
 from . import __version__
 from .commands import (
-    autostart, init, login, logout, ls, pull, push, setup, status, sync, tick, whoami,
+    autostart, init, log, login, logout, ls, pull, push, restore, setup, status,
+    sync, tick, whoami,
 )
 
 
@@ -137,6 +138,38 @@ def main():
         help="Permit a run that would delete most of the folder",
     )
     p.set_defaults(func=sync.run)
+
+    p = sub.add_parser(
+        "log",
+        help="Show what foldrive has done to this folder",
+    )
+    p.add_argument(
+        "-n", "--number",
+        type=int,
+        default=20,
+        help="How many entries to show (default 20)",
+    )
+    p.add_argument(
+        "--all",
+        action="store_true",
+        help="Show the entire history",
+    )
+    p.set_defaults(func=log.run)
+
+    p = sub.add_parser(
+        "restore",
+        help="Bring one file back from Drive",
+    )
+    p.add_argument(
+        "path",
+        help="Path of the file inside this folder, e.g. notes/unit-3.pdf",
+    )
+    p.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite the local file if it already exists",
+    )
+    p.set_defaults(func=restore.run)
 
     p = sub.add_parser(
         "tick",

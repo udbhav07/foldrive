@@ -1,6 +1,6 @@
 from pathlib import PurePosixPath
 from send2trash import send2trash
-from . import drive, engine, progress, prompts, state
+from . import drive, engine, history, progress, prompts, state
 
 # How many transfers between snapshot writes. Low enough that a hard kill costs
 # little re-work, high enough that the write itself stays negligible.
@@ -39,6 +39,7 @@ def push(service, folder, root_folder_id, current_state, actions, local_files, r
     summary={"uploaded":0, "updated":0, "trashed":0, "linked":0, "failed":0}
     folder_ids = current_state["folders"]
     reporter = progress.Reporter.for_actions(actions)
+    history.trim_if_large(folder)
 
     for action in actions:
         relative_path = action.relpath
@@ -115,6 +116,14 @@ def push(service, folder, root_folder_id, current_state, actions, local_files, r
             elif action.kind == "forget":
                 current_state["files"].pop(relative_path, None)
 
+            # Recorded only after the action succeeded, so history never claims
+            # work that did not happen.
+            if action.kind != "forget":
+                history.record(
+                    folder, action.kind, relative_path,
+                    current_state["files"].get(relative_path, {}).get("drive_file_id")
+                    or (remote_files.get(relative_path) or {}).get("id"),
+                )
             _periodic_save(folder, current_state, reporter.completed)
 
         except Exception as failure:
@@ -128,6 +137,7 @@ def push(service, folder, root_folder_id, current_state, actions, local_files, r
 def pull(service, folder, current_state,actions, local_files,remote_files):
     summary = {"downloaded": 0, "updated": 0, "recycled": 0, "linked": 0, "failed": 0}
     reporter = progress.Reporter.for_actions(actions)
+    history.trim_if_large(folder)
 
     for action in actions:
         relative_path = action.relpath
@@ -198,6 +208,14 @@ def pull(service, folder, current_state,actions, local_files,remote_files):
             elif action.kind == "forget":
                 current_state["files"].pop(relative_path, None)
 
+            # Recorded only after the action succeeded, so history never claims
+            # work that did not happen.
+            if action.kind != "forget":
+                history.record(
+                    folder, action.kind, relative_path,
+                    current_state["files"].get(relative_path, {}).get("drive_file_id")
+                    or (remote_files.get(relative_path) or {}).get("id"),
+                )
             _periodic_save(folder, current_state, reporter.completed)
 
         except Exception as failure:
