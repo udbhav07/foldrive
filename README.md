@@ -23,6 +23,7 @@ foldrive autostart             # optional: keep it synced every 5 minutes
 
 | Command | What it does |
 |---|---|
+| `foldrive setup` | One-time Google setup: prints the steps, installs your OAuth client file |
 | `foldrive login` / `logout` / `whoami` | Google account sign-in |
 | `foldrive init` | Link the current folder to a Drive folder (creates it if absent) |
 | `foldrive status` | Read-only preview of every pending change, both directions |
@@ -246,33 +247,40 @@ python -m venv .venv && .venv\Scripts\activate     # macOS/Linux: source .venv/b
 pip install -e .
 ```
 
-Then the one-time Google setup, unless you installed a build with a bundled
-`client_secret.json` (in which case just run `foldrive login` and accept the
-"unverified app" warning once — **Advanced → Go to foldrive → Allow**).
+Then the one-time Google setup — about five minutes, once:
+
+```
+foldrive setup                                  # prints the steps
+foldrive setup ~/Downloads/client_secret_xxx.json   # installs the file you downloaded
+foldrive login
+```
+
+You'll see Google's "unverified app" warning once — **Advanced → Go to foldrive →
+Allow**. That's expected for personal tools; verification is a paid audit meant
+for commercial apps.
 
 <details>
-<summary>Using your own free Google OAuth app</summary>
+<summary>The Google Cloud steps in full</summary>
 
 1. <https://console.cloud.google.com> → create a project.
 2. **APIs & Services → Library** → *Google Drive API* → **Enable**.
 3. **OAuth consent screen** → User type **External** → app name + your email →
    **Publish app**. *Don't skip publishing: in "Testing" status Google expires
    your login every 7 days.*
-4. **Credentials → Create credentials → OAuth client ID** → **Desktop app** →
-   **Download JSON**.
-5. Save it as `client_secret.json` in foldrive's app folder:
-
-   | | |
-   |---|---|
-   | Windows | `%APPDATA%\foldrive\` |
-   | macOS | `~/Library/Application Support/foldrive/` |
-   | Linux | `~/.local/share/foldrive/` |
-
+4. **Credentials → Create credentials → OAuth client ID** → Application type
+   **Desktop app** → **Download JSON**. *Desktop app, not Web application — a
+   Web client can't sign in from a terminal.*
+5. `foldrive setup <the downloaded file>` — it validates the file and puts it in
+   the right place for your OS.
 6. `foldrive login`.
 
-`client_secret.json` identifies the *app* and grants access to nothing. Your login
-creates `token.json` beside it, which opens *your* Drive only. Revoke anytime at
-<https://myaccount.google.com/permissions>.
+**Why you make your own:** the client id carries a shared quota and a 100-user cap
+on unverified apps. Your own client means your own uncontended quota, and no
+dependency on anyone else's app staying healthy.
+
+`client_secret.json` identifies the *app* and grants access to nothing on its own.
+Your login creates `token.json` beside it, which opens *your* Drive only. Revoke
+anytime at <https://myaccount.google.com/permissions>.
 </details>
 
 ---

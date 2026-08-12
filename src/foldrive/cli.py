@@ -3,7 +3,9 @@
 import argparse
 
 from . import __version__
-from .commands import autostart, init, login, logout, ls, pull, push, status, sync, tick, whoami
+from .commands import (
+    autostart, init, login, logout, ls, pull, push, setup, status, sync, tick, whoami,
+)
 
 
 def main():
@@ -22,6 +24,24 @@ def main():
         dest="command",
         required=True,
     )
+
+    p = sub.add_parser(
+        "setup",
+        help="One-time Google setup: install your OAuth client file",
+    )
+    p.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        help="Path to the client JSON downloaded from Google Cloud "
+             "(omit to print the setup steps)",
+    )
+    p.add_argument(
+        "--force",
+        action="store_true",
+        help="Replace an already-installed client file",
+    )
+    p.set_defaults(func=setup.run)
 
     p = sub.add_parser(
         "login",
