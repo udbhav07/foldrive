@@ -48,6 +48,9 @@ schedule they choose, with nothing happening that they can't inspect first.
 * **Deletion safety** — soft deletes, a mass-delete guard, and an optional never-delete side.
 * **Survives interruptions** — progress is checkpointed; re-running never creates duplicates.
 * **Catches up automatically** after being offline, asleep, or unplugged.
+* **A real installable tool, not a clone-and-run script** — one `pip install
+  foldrive` puts all fourteen commands on Windows, macOS or Linux (Python 3.10+,
+  MIT), with a proper console entry point.
 
 ## Contents
 
@@ -74,6 +77,9 @@ schedule they choose, with nothing happening that they can't inspect first.
    ```
    pip install foldrive
    ```
+
+   > Not on PyPI quite yet — v0.1.0 lands after macOS and Linux testing. Until
+   > then, use the source install below.
 
    <details>
    <summary>Or from source, to develop on it</summary>
