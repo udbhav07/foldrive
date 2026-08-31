@@ -21,7 +21,7 @@ import pytest
 
 from foldrive import drive, engine, executor, scanner, state
 
-from .fake_drive import FakeDrive, install
+from ..helpers.fake_drive import FakeDrive, install
 
 # Slow by design: every test here is parametrized over SCALE trials. PR runs use
 # `-m "not slow"`; the nightly job raises FOLDRIVE_FUZZ_TRIALS and runs only these.
