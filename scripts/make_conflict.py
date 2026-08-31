@@ -1,7 +1,7 @@
 """Fabricate a real conflict for testing: same file, different content on both sides.
 
 Usage (from inside a synced folder):
-    python tools/make_conflict.py shared.txt
+    python scripts/make_conflict.py shared.txt
 """
 
 import sys
