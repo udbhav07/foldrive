@@ -55,3 +55,30 @@ version = { attr = "foldrive.__version__" }
 testpaths = ["tests"]
 addopts = "-q --strict-markers"
 markers = ["slow: randomized/property tests, excluded from PR runs"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+# The core correctness set: pyflakes plus the pycodestyle errors that are
+# actually bugs. Deliberately not a style crusade - the code is consistent
+# enough already, and a linter that rewrites it teaches nobody anything.
+select = ["E4", "E7", "E9", "F"]
+
+[tool.coverage.run]
+# Deliberately not the whole package. drive.py and auth.py are thin API
+# wrappers, and a coverage target there only invites mock theatre.
+source = [
+    "foldrive.engine",
+    "foldrive.config",
+    "foldrive.scanner",
+    "foldrive.state",
+    "foldrive.history",
+]
+
+[tool.coverage.report]
+show_missing = true
+# Measured at 94% with `-m "not slow"`. Set just under, so ordinary work has
+# room and a real drop still fails.
+fail_under = 92

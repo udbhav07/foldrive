@@ -8,7 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from foldrive import auth, config, drive, scanner, state
+from foldrive import auth, config, drive
 
 
 def main():
@@ -18,7 +18,6 @@ def main():
         raise SystemExit("Not a foldrive folder.")
 
     folder_config = config.load_config(folder)
-    current_state = state.load_state(folder)
     service = auth.get_service()
     local_path = folder / file_name
 

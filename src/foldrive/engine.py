@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import PurePosixPath
 
 # Local mtime and Drive's modifiedTime come from different clocks; anything

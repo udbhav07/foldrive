@@ -1,5 +1,5 @@
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
-import io,os
+import os
 
 FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
 API_MAX_RETRIES = 5
