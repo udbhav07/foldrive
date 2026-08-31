@@ -23,6 +23,10 @@ from foldrive import drive, engine, executor, scanner, state
 
 from .fake_drive import FakeDrive, install
 
+# Slow by design: every test here is parametrized over SCALE trials. PR runs use
+# `-m "not slow"`; the nightly job raises FOLDRIVE_FUZZ_TRIALS and runs only these.
+pytestmark = pytest.mark.slow
+
 # foldrive's own files are ignored in real use; the tests must do the same, or the
 # harness syncs state.json into the fake Drive and nothing converges.
 IGNORE = [".foldrive/", ".googledrive.json"]
