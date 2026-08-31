@@ -5,6 +5,10 @@ __pycache__/
 build/
 dist/
 *.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
 # never commit credentials
 client_secret.json
