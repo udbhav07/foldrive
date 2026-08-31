@@ -337,16 +337,6 @@ def resolve_conflict(service, folder, root_folder_id, current_state, action,
     current_state["files"].pop(relative_path, None)
     return f"tie: kept {local_copy} + {drive_copy}"
 
-def resolve_all_conflicts(service, folder, root_folder_id, current_state, conflicts,
-                          local_files, remote_files, interactive, default_choice="keep_both"):
-    """Deprecated: use collect_conflict_choices() then apply_conflict_choices()."""
-    choices = collect_conflict_choices(
-        conflicts, local_files, remote_files, interactive, {}, default_choice
-    )
-    return apply_conflict_choices(service, folder, root_folder_id, current_state,
-                                  choices, local_files, remote_files)
-
-
 def collect_conflict_choices(conflicts, local_files, remote_files, interactive,
                              overrides=None, default_choice="keep_both"):
     """Decide every conflict up front, before any transfer starts.
