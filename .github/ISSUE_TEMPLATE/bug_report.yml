@@ -1,0 +1,88 @@
+name: Bug report
+description: Something foldrive did that it should not have
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        If files went missing or were deleted unexpectedly, say so first — that
+        is the most important kind of bug this project can have, and it will be
+        looked at ahead of everything else.
+
+        Please do not paste the contents of `token.json` or `client_secret.json`
+        anywhere in this issue.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you expect, and what did you get instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. foldrive init in a folder with ...
+        2. edited the file in Drive
+        3. foldrive sync
+        4. ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: foldrive version
+      description: The output of `foldrive --version`
+      placeholder: foldrive 0.1.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "3.12.4"
+    validations:
+      required: true
+
+  - type: textarea
+    id: status-output
+    attributes:
+      label: "`foldrive status` output"
+      description: >
+        Run it in the affected folder. It is read-only and changes nothing.
+        Redact any file names you would rather not share.
+      render: text
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Relevant log lines
+      description: >
+        From `%APPDATA%\foldrive\logs\foldrive.log` on Windows,
+        `~/Library/Application Support/foldrive/logs/` on macOS, or
+        `~/.local/share/foldrive/logs/` on Linux.
+      render: text
+
+  - type: checkboxes
+    id: scheduled
+    attributes:
+      label: When did it happen
+      options:
+        - label: During a command I ran myself
+        - label: During a scheduled background tick

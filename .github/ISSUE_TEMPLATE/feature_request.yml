@@ -1,0 +1,33 @@
+name: Feature request
+description: Something foldrive should be able to do
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A few things are deliberate non-goals, so it is worth checking
+        [docs/design-decisions.md](../../blob/main/docs/design-decisions.md)
+        first: real-time sync, client-side encryption, and a full `undo` are
+        all out of scope by choice rather than by omission.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: >
+        The situation, not the solution. What does foldrive make hard or
+        impossible today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you have in mind
+      description: A command, a config key, a flag — whatever shape it takes.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do instead today
+      description: A workaround, another tool, or doing it by hand.

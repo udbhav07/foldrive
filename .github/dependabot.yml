@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "ci"
+
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "deps"
+    # foldrive pins lower bounds, not exact versions, so these should be rare -
+    # they matter when google-api-python-client makes a breaking change.
+    open-pull-requests-limit: 5

@@ -1,0 +1,56 @@
+name: Release
+
+# Tag -> build -> PyPI. Publishing uses trusted publishing, so there is no API
+# token in this repository: PyPI is configured to trust this workflow on this
+# repo, and mints a short-lived credential for the run.
+#
+# Before the first release, add a publisher on PyPI for:
+#   owner udbhav07 / repo foldrive / workflow release.yml / environment pypi
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]" build
+      # A tag is not a licence to skip the tests.
+      - run: pytest -m "not slow"
+      - run: python -m build
+      # The version comes from foldrive.__version__ via pyproject's dynamic
+      # version, so a tag that disagrees with the package is caught here rather
+      # than after it is published and immutable.
+      - name: Check the tag matches the package version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          package_version=$(python -c "import foldrive; print(foldrive.__version__)")
+          tag_version="${GITHUB_REF_NAME#v}"
+          if [ "$package_version" != "$tag_version" ]; then
+            echo "tag $tag_version does not match foldrive.__version__ $package_version"
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    environment: pypi
+    permissions:
+      id-token: write        # required for trusted publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

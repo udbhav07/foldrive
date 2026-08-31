@@ -1,0 +1,28 @@
+name: Nightly fuzz
+
+# The randomized suite at twenty times its normal trial count. Convergence,
+# idempotency, no-data-loss and the crash-rework bound are properties, not
+# examples: the more situations they see, the more they are worth. Too slow for
+# a PR, so it runs once a night instead.
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  fuzz:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: pytest -m slow -v
+        env:
+          FOLDRIVE_FUZZ_TRIALS: "1000"
