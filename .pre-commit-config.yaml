@@ -1,0 +1,25 @@
+# Optional, and not what CI runs - CI is the source of truth. This just moves
+# the same two checks to before the commit instead of after the push.
+#
+#   pip install pre-commit && pre-commit install
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.md$
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+      # token.json and client_secret.json are gitignored; this is the backstop
+      # for the day someone renames one.
+      - id: detect-private-key
