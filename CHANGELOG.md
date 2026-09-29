@@ -3,6 +3,21 @@
 All notable changes to foldrive are recorded here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [0.1.1] - 2026-09-29
+
+Maintenance release. No change in behavior.
+
+### Changed
+- Removed the unused `resolve_all_conflicts`, deprecated in favor of
+  `collect_conflict_choices` + `apply_conflict_choices`.
+- Removed unused imports; the version is now read from `foldrive.__version__`.
+
+### Added
+- Test suite reorganized into unit, integration, CLI, platform and property layers,
+  with a coverage floor. CI, a nightly fuzz run and tagged releases to PyPI.
+- Architecture and design-decision docs, a manual test checklist, and
+  contributing/security/conduct files.
+
 ## [0.1.0] - 2026-08-12
 
 First public release.
