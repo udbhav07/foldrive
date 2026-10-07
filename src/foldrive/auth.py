@@ -35,6 +35,11 @@ def login():
     creds=get_credentials()
     if creds:
         return creds
+    if not CLIENT_SECRET_PATH.exists():
+        raise SystemExit(
+            f"No OAuth client file at {CLIENT_SECRET_PATH}.\n"
+            "Run `foldrive setup` for instructions, then: foldrive login"
+        )
     flow = InstalledAppFlow.from_client_secrets_file(str(CLIENT_SECRET_PATH), SCOPES)
     creds = flow.run_local_server(port=0)
     _save(creds)
