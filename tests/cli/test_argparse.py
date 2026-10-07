@@ -124,6 +124,7 @@ def test_setup_takes_an_optional_path(parse):
     assert parse(["setup"]).path is None
     assert parse(["setup", "client.json"]).path == "client.json"
     assert parse(["setup", "--force"]).force is True
+    assert parse(["setup", "--manual"]).manual is True
 
 
 def test_ls_takes_an_optional_name(parse):

@@ -6,7 +6,6 @@ on can: "save this download into a hidden app folder whose path differs per OS".
 """
 
 import json
-import shutil
 from pathlib import Path
 
 from .. import auth, paths
@@ -27,6 +26,10 @@ This is a one-time setup, and it stays on your machine.
 
          foldrive setup ~/Downloads/client_secret_xxxx.json
 
+     Or skip the download and paste the Client ID and Client secret instead:
+
+         foldrive setup --manual
+
 It will be installed at:
      {auth.CLIENT_SECRET_PATH}
 
@@ -35,6 +38,11 @@ Then run: foldrive login
 
 
 def run(args):
+    if args.manual:
+        _check_not_installed(args)
+        _install(_prompt_credentials())
+        return
+
     if not args.path:
         print(INSTRUCTIONS)
         return
@@ -72,15 +80,58 @@ def run(args):
             "Download JSON."
         )
 
+    _check_not_installed(args)
+    _install(client_file)
+
+
+def _check_not_installed(args):
     if auth.CLIENT_SECRET_PATH.exists() and not args.force:
         raise SystemExit(
             f"{auth.CLIENT_SECRET_PATH} already exists.\n"
             "Re-run with --force to replace it (you will need to log in again)."
         )
 
+
+def _prompt_credentials():
+    """Build the same file Google's "Download JSON" gives, from two pasted values.
+
+    Both are shown on the OAuth client's page in Google Cloud Credentials. For a
+    Desktop app the secret is not confidential (Google says as much), so it is
+    read with input() rather than getpass - a blind paste just confuses people.
+    """
+    print("Paste the values from Google Cloud -> Credentials -> your Desktop OAuth client.")
+    try:
+        client_id = input("Client ID: ").strip()
+        client_secret = input("Client secret: ").strip()
+    except EOFError:
+        raise SystemExit("\nCancelled.")
+
+    # The two fields sit next to each other and are easy to swap; the id always
+    # has this suffix and the secret never does.
+    if not client_id.endswith(".apps.googleusercontent.com"):
+        raise SystemExit(
+            "That Client ID doesn't look right - it should end in "
+            ".apps.googleusercontent.com."
+        )
+    if not client_secret:
+        raise SystemExit("The Client secret is required.")
+
+    return {
+        "installed": {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+            "redirect_uris": ["http://localhost"],
+        }
+    }
+
+
+def _install(client_file):
     paths.APP_DIR.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(source_path, auth.CLIENT_SECRET_PATH)
+    auth.CLIENT_SECRET_PATH.write_text(json.dumps(client_file, indent=2), encoding="utf-8")
 
     print(f"Installed: {auth.CLIENT_SECRET_PATH}")
-    print(f"Client id: {credentials['client_id']}")
+    print(f"Client id: {client_file['installed']['client_id']}")
     print("\nReady. Run: foldrive login")

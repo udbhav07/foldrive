@@ -42,6 +42,11 @@ def main():
         action="store_true",
         help="Replace an already-installed client file",
     )
+    p.add_argument(
+        "--manual",
+        action="store_true",
+        help="Type the Client ID and secret instead of giving the JSON file",
+    )
     p.set_defaults(func=setup.run)
 
     p = sub.add_parser(

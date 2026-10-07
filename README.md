@@ -113,6 +113,9 @@ schedule they choose, with nothing happening that they can't inspect first.
    foldrive login
    ```
 
+   No JSON file? Run `foldrive setup --manual` instead and paste the Client ID
+   and Client secret from the OAuth client's page in Google Cloud Credentials.
+
    You will see Google's "unverified app" warning once — **Advanced → Go to
    foldrive → Allow**. That is expected for personal tools; verification is a paid
    audit intended for commercial apps.
